@@ -26,4 +26,4 @@ clean:
 	rm -vf *.o
 
 clean_all: clean
-	rm -vf Fleck Gotham Harley Enigma  *.txt
+	rm -rvf Fleck Gotham Harley Enigma  *.txt *.dSYM

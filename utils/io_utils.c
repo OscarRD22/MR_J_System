@@ -11,12 +11,13 @@ void printToConsole(char *x) {
     fflush(stdout);
 }
 
+
+
 void printError(char *x) {
     write(2, x, strlen(x));
     fflush(stderr);
 }
 
-// CREO QUE ESTO TIENE MEMORY LEAK EN ALGUN PUNTO REVISAR
 char *readUntil(char del, int fd) {
     char *chain = malloc(sizeof(char) * 1);
     char c;
