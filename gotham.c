@@ -27,15 +27,15 @@ void saveGotham(char *filename) {
 }
 
 void closeProgramSignal() {
-    freeMemory();
-    closeFds();
+    //freeMemory();
+    //closeFds();
     exit(0);
 }
-
+/**
 void closeFds() {
     // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
 }
-
+*/
 void initalSetup(int argc) {
     if (argc < 2) {
         printError("ERROR: Not enough arguments provided\n");

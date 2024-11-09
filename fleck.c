@@ -52,7 +52,7 @@ void closeProgramSignal() {
 }
 
 void initalSetup(int argc) {
-    if (argc < 2) {
+    if (argc != 2) {
         printError("ERROR: Not enough arguments provided\n");
         exit(1);
     }
@@ -69,10 +69,11 @@ void commandInterpretter() {
             free(command);
             command = NULL;
         }
-        readUntil('\n', 0);
+        command = readUntil('\n', 0);
 
         bytesRead = strlen(command);
-        if (bytesRead >= 0) {
+
+        if (bytesRead == 0) {
             printError("ERROR NO BYTES READ");
             break;
         }
@@ -83,39 +84,71 @@ void commandInterpretter() {
         }
         // IGUAL VA BIEN SEPARAR ESTO EN OTRA FUNCION
         //  NO ME SE LOS COMANDOS ESTO ES SOLO UN EJEMPLO
-        if (strcasecmp(command, "CONNECT") == 0) {
-            printToConsole("CONNECT");
+        if (strcmp(command, "CONNECT") == 0) {
+            char *buffer = NULL;
+            asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n", fleck.username);
+            printToConsole(buffer);
+            free(buffer);
+            continueReading = TRUE;
             // F2
             // connectToGotham();
             // te va a venir una ip con server de Harley/Enigma
             // conectToEnigma();
-        } else if (strcasecmp(command, "LOGOUT") == 0) {
+        } else if (strcmp(command, "LOGOUT") == 0) {
             // DESCONECTAR SOCKETS Y SALIR
+            printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
             continueReading = FALSE;
+            break;
         } else {  // COMMAND HAS MORE THAN ONE WORD
             char *token = strtok(command, " ");
             if (token != NULL) {
-                if (strcasecmp(command, "DISTORT")) {
+                if (strcmp(token, "DISTORT")) {
+                    /*
                     char *filename = strtok(NULL, " ");
                     if (filename != NULL && strtok(NULL, " ") == NULL) {
                         // TODO: DISTORSIONAR ARCHIVO
                         free(command);
                         command = NULL;
                     } else {
-                        printError("Error: Missing arguments\n");
-                        printToConsole("$ ");
+                        printError("Unknown command\n");
+                        free(command);
+                        command = NULL;
+                    }*/
+                    printToConsole("Command ok\n");
+                }else if (strcmp(token,"CHECK")){
+                    token = strtok(NULL, " ");
+                    if (token != NULL && strcmp(token, "STATUS") == 0) {
+                        printToConsole("Command ok\n");
+                    }else {
+                        printError("Unknown command\n");
                         free(command);
                         command = NULL;
                     }
+                }else if (strcmp(token,"LIST")){
+                    token = strtok(NULL, " ");
+                    //F1 SE TIENE QUE IMPLEMENTAR
+                    if (token != NULL && strcmp(token, "MEDIA") == 0) {
+                        printToConsole("You have no files in your folder\n");
+                    }
+                }else if (strcmp(token,"LIST")){
+                    token = strtok(NULL, " ");
+                    //F1 SE TIENE QUE IMPLEMENTAR
+                    if (token != NULL && strcmp(token, "TEXT") == 0) {
+                        printToConsole("You have no files in your folder\n");
+                    }
+                }else{
+                    printError("ERROR: Please input a valid command.\n");
+                    free(command);
+                    command = NULL;
                 }
+                
             } else {
                 printError("ERROR: Please input a valid command.\n");
                 free(command);
                 command = NULL;
-                printToConsole("$ ");
             }
         }
-
+        printToConsole("$ ");
     } while (continueReading == TRUE);
     free(command);
 }
