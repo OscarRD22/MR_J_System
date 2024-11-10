@@ -7,6 +7,7 @@
 
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
+#include "utils/utils_fleck.h"
 
 // This is the client
 Fleck fleck;
@@ -59,10 +60,11 @@ void initalSetup(int argc) {
     signal(SIGINT, closeProgramSignal);
 }
 
+
 void commandInterpretter() {
     int bytesRead;
     command = NULL;
-    int continueReading = TRUE;
+    int continueReading = TRUE, CONNECTED = FALSE;
 
     do {
         if (command != NULL) {
@@ -90,6 +92,9 @@ void commandInterpretter() {
             printToConsole(buffer);
             free(buffer);
             continueReading = TRUE;
+            CONNECTED = TRUE;
+            free(command);
+            command = NULL;
             // F2
             // connectToGotham();
             // te va a venir una ip con server de Harley/Enigma
@@ -102,8 +107,16 @@ void commandInterpretter() {
         } else {  // COMMAND HAS MORE THAN ONE WORD
             char *token = strtok(command, " ");
             if (token != NULL) {
-                if (strcmp(token, "DISTORT")) {
+                if (strcmp(token, "DISTORT")==0) {
+                    if(CONNECTED == FALSE){
+                        printError("ERROR: You must connect first\n");
+                        free(command);
+                        command = NULL;
+                    }else{
+                    printf("ESTE ES EL TOKEN %s\n", token);
+
                     /*
+                    
                     char *filename = strtok(NULL, " ");
                     if (filename != NULL && strtok(NULL, " ") == NULL) {
                         // TODO: DISTORSIONAR ARCHIVO
@@ -115,7 +128,9 @@ void commandInterpretter() {
                         command = NULL;
                     }*/
                     printToConsole("Command ok\n");
-                }else if (strcmp(token,"CHECK")){
+                    }
+                 
+                }else if (strcmp(token,"CHECK")==0){
                     token = strtok(NULL, " ");
                     if (token != NULL && strcmp(token, "STATUS") == 0) {
                         printToConsole("Command ok\n");
@@ -124,17 +139,17 @@ void commandInterpretter() {
                         free(command);
                         command = NULL;
                     }
-                }else if (strcmp(token,"LIST")){
+                }else if (strcmp(token,"LIST")==0){
                     token = strtok(NULL, " ");
                     //F1 SE TIENE QUE IMPLEMENTAR
                     if (token != NULL && strcmp(token, "MEDIA") == 0) {
-                        printToConsole("You have no files in your folder\n");
-                    }
-                }else if (strcmp(token,"LIST")){
-                    token = strtok(NULL, " ");
-                    //F1 SE TIENE QUE IMPLEMENTAR
-                    if (token != NULL && strcmp(token, "TEXT") == 0) {
-                        printToConsole("You have no files in your folder\n");
+                        listMedia();
+                    }else if(token != NULL && strcmp(token, "TEXT") == 0){
+                        listText();
+                    }else{
+                        printError("Unknown command\n");
+                        free(command);
+                        command = NULL;
                     }
                 }else{
                     printError("ERROR: Please input a valid command.\n");
