@@ -3,8 +3,23 @@
 
 #include <stdint.h>
 
+// Osar.romero - Marc.marza
+
+
 #define TRUE 1
 #define FALSE 0
+
+
+
+typedef struct
+{
+    uint8_t type;
+    int dataLength;
+    char *data;
+    int checksum;
+    char *timestamp;
+} SocketMessage;
+
 
 typedef struct {
     char *username;

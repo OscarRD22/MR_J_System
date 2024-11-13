@@ -6,6 +6,8 @@
 
 #include "../struct_definitions.h"
 
+// Osar.romero - Marc.marza
+
 void printToConsole(char *x) {
     write(1, x, strlen(x));
     fflush(stdout);

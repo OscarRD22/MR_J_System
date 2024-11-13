@@ -9,6 +9,10 @@
 #include "utils/io_utils.h"
 #include "utils/utils_fleck.h"
 
+
+// Osar.romero - Marc.marza
+
+
 // This is the client
 Fleck fleck;
 char *command;
@@ -84,30 +88,25 @@ void commandInterpretter() {
         if (len > 0 && command[len - 1] == '\n') {
             command[len - 1] = '\0';
         }
-        // IGUAL VA BIEN SEPARAR ESTO EN OTRA FUNCION
-        //  NO ME SE LOS COMANDOS ESTO ES SOLO UN EJEMPLO
-        if (strcmp(command, "CONNECT") == 0) {
+        if (strcasecmp(command, "CONNECT") == 0) {
             char *buffer = NULL;
             asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n", fleck.username);
             printToConsole(buffer);
-            free(buffer);
-            continueReading = TRUE;
-            CONNECTED = TRUE;
-            free(command);
-            command = NULL;
+            free(buffer);            
             // F2
-            // connectToGotham();
-            // te va a venir una ip con server de Harley/Enigma
+             connectToGotham(FALSE);
+             free(command);
+             command = NULL;
+            // Vienen una ip con server de Harley/Enigma
             // conectToEnigma();
-        } else if (strcmp(command, "LOGOUT") == 0) {
-            // DESCONECTAR SOCKETS Y SALIR
-            printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
+        } else if (strcasecmp(command, "LOGOUT") == 0) {
+            //printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
+            //logout();  -> // DESCONECTAR SOCKETS Y SALIR
             continueReading = FALSE;
-            break;
         } else {  // COMMAND HAS MORE THAN ONE WORD
             char *token = strtok(command, " ");
             if (token != NULL) {
-                if (strcmp(token, "DISTORT")==0) {
+                if (strcasecmp(token, "DISTORT")==0) {
                     if(CONNECTED == FALSE){
                         printError("ERROR: You must connect first\n");
                         free(command);
@@ -130,7 +129,7 @@ void commandInterpretter() {
                     printToConsole("Command ok\n");
                     }
                  
-                }else if (strcmp(token,"CHECK")==0){
+                }else if (strcasecmp(token,"CHECK")==0){
                     token = strtok(NULL, " ");
                     if (token != NULL && strcmp(token, "STATUS") == 0) {
                         printToConsole("Command ok\n");
@@ -139,12 +138,12 @@ void commandInterpretter() {
                         free(command);
                         command = NULL;
                     }
-                }else if (strcmp(token,"LIST")==0){
+                }else if (strcasecmp(token,"LIST")==0){
                     token = strtok(NULL, " ");
                     //F1 SE TIENE QUE IMPLEMENTAR
-                    if (token != NULL && strcmp(token, "MEDIA") == 0) {
+                    if (token != NULL && strcasecmp(token, "MEDIA") == 0) {
                         listMedia();
-                    }else if(token != NULL && strcmp(token, "TEXT") == 0){
+                    }else if(token != NULL && strcasecmp(token, "TEXT") == 0){
                         listText();
                     }else{
                         printError("Unknown command\n");
