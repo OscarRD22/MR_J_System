@@ -37,6 +37,9 @@ void saveFleck(char *filename) {
     free(buffer);
 }
 
+/**
+ * @brief Free the memory allocated 
+ */
 void freeMemory() {
     free(fleck.username);
     free(fleck.folder);
@@ -93,39 +96,27 @@ void commandInterpretter() {
             asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n", fleck.username);
             printToConsole(buffer);
             free(buffer);            
-            // F2
+        
              connectToGotham(FALSE);
              free(command);
              command = NULL;
             // Vienen una ip con server de Harley/Enigma
             // conectToEnigma();
         } else if (strcasecmp(command, "LOGOUT") == 0) {
-            //printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
-            //logout();  -> // DESCONECTAR SOCKETS Y SALIR
+            printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
+            logout();  // DESCONECTAR SOCKETS Y SALIR
             continueReading = FALSE;
         } else {  // COMMAND HAS MORE THAN ONE WORD
             char *token = strtok(command, " ");
             if (token != NULL) {
                 if (strcasecmp(token, "DISTORT")==0) {
                     if(CONNECTED == FALSE){
-                        printError("ERROR: You must connect first\n");
+                        printError("Cannot distort, you are not connected to Mr. J System\n");
                         free(command);
                         command = NULL;
                     }else{
                     printf("ESTE ES EL TOKEN %s\n", token);
 
-                    /*
-                    
-                    char *filename = strtok(NULL, " ");
-                    if (filename != NULL && strtok(NULL, " ") == NULL) {
-                        // TODO: DISTORSIONAR ARCHIVO
-                        free(command);
-                        command = NULL;
-                    } else {
-                        printError("Unknown command\n");
-                        free(command);
-                        command = NULL;
-                    }*/
                     printToConsole("Command ok\n");
                     }
                  
@@ -134,7 +125,7 @@ void commandInterpretter() {
                     if (token != NULL && strcmp(token, "STATUS") == 0) {
                         printToConsole("Command ok\n");
                     }else {
-                        printError("Unknown command\n");
+                        printError("You have no ongoing or finished distorsions\n");
                         free(command);
                         command = NULL;
                     }
@@ -151,7 +142,7 @@ void commandInterpretter() {
                         command = NULL;
                     }
                 }else{
-                    printError("ERROR: Please input a valid command.\n");
+                    printError("Unknown command\n");
                     free(command);
                     command = NULL;
                 }
@@ -165,7 +156,8 @@ void commandInterpretter() {
         printToConsole("$ ");
     } while (continueReading == TRUE);
     free(command);
-}
+    command = NULL;
+    }
 
 int main(int argc, char *argv[]) {
     initalSetup(argc);
@@ -173,7 +165,6 @@ int main(int argc, char *argv[]) {
     saveFleck(argv[1]);
 
     commandInterpretter();
-
     freeMemory();
     return 0;
 }

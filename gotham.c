@@ -15,9 +15,12 @@
 
 // This is the client
  Gotham gotham;
+ int data_file_fd, listenToFleck,listenToEnigma, listenToHarley = 0;
+ pthread_t FleckThread, EnigmaThread, HarleyThread;
+
 
 void saveGotham(char *filename) {
-    int data_file_fd = open(filename, O_RDONLY);
+    data_file_fd = open(filename, O_RDONLY);
     if (data_file_fd < 0) {
         printError("Error while opening the Fleck file");
         exit(1);
@@ -65,18 +68,45 @@ int main(int argc, char *argv[]) {
 
     saveGotham(argv[1]);
 
-/*if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, NULL) != 0) {
+if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, NULL) != 0) {
         printError("Error creating Fleck thread\n");
         exit(1);
     }
 
+if (pthread_create(&EnigmaThread, NULL, (void *)listenToEnigma, NULL) != 0) {
+        printError("Error creating Enigma thread\n");
+        exit(1);
+    }
 
-    Faltan dos threads mas Enigma/Harley.
-*/
+    if (pthread_create(&HarleyThread, NULL, (void *)listenToHarley, NULL) != 0) {
+        printError("Error creating Harley thread\n");
+        exit(1);
+    }
+
 
 
     printToConsole("Gotham saved\n");
 
     freeMemory();
     return 0;
+}
+
+
+
+/**
+ * @brief Closes the file descriptors if they are open
+ */
+void closeFds() {
+    if (data_file_fd != 0) {
+        close(data_file_fd);
+    }
+    if (listenToFleck != 0) {
+        close(listenToFleck);
+    }
+    if (EnigmaThread != 0) {
+        close(EnigmaThread);
+    }
+    if (HarleyThread != 0) {
+        close(HarleyThread);
+    }
 }
