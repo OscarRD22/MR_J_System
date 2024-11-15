@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "../struct_definitions.h"
 
@@ -72,4 +73,22 @@ void printArray(char *array) {
         free(buffer);
     }
     printToConsole("Finished printing array\n");
+}
+
+
+
+char *convertToHex(){
+    time_t timestamp;
+    timestamp = time(NULL);
+    char *hexString = malloc(4*sizeof(char));
+
+    if(hexString == NULL){
+        printError("Error:");
+    }
+
+    snprintf(hexString, 4, "%08lX", (unsigned long)timestamp);
+
+    return hexString;
+
+
 }

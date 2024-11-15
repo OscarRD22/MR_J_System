@@ -24,10 +24,14 @@ void saveGotham(char *filename) {
     }
 
    gotham.fleck_ip = readUntil('\n', data_file_fd);
-    gotham.fleck_port = atoi(readUntil('\n', data_file_fd));
+    char *port1 = readUntil('\n', data_file_fd);
+    gotham.fleck_port = atoi(port1);
+    free(port1);
 
     gotham.harley_enigma_ip = readUntil('\n', data_file_fd);
-    gotham.harley_enigma_port = atoi(readUntil('\n', data_file_fd));
+    char *port = readUntil('\n', data_file_fd);
+    gotham.harley_enigma_port = atoi(port);
+    free(port);
 
 }
 
@@ -60,6 +64,18 @@ int main(int argc, char *argv[]) {
     initalSetup(argc);
 
     saveGotham(argv[1]);
+
+/*if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, NULL) != 0) {
+        printError("Error creating Fleck thread\n");
+        exit(1);
+    }
+
+
+    Faltan dos threads mas Enigma/Harley.
+*/
+
+
+    printToConsole("Gotham saved\n");
 
     freeMemory();
     return 0;

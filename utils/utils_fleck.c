@@ -2,6 +2,8 @@
 #include "utils_fleck.h"
 #include "utils_connect.h"
 
+#include "../struct_definitions.h"
+
 
 
 
@@ -9,8 +11,8 @@
 
 extern Fleck fleck;
 
-int gothamSocketFD = FALSE;
-
+int gothamSocketFD,distorsionSocketFD;
+int isDistorsionConnected = FALSE;
 #define MAX_FILES 100
 
 void listMedia() {
@@ -121,19 +123,23 @@ int connectToGotham(int isExit) {
     
     SocketMessage m;
     if (isExit == FALSE) {
+        char *buffer;
+        asprintf(&buffer, "%s&%s&%d", fleck.username, fleck.ip, fleck.port);
         m.type = 0x01;
-        m.dataLength = strlen("NEW_FLECK");
-        m.data = strdup(fleck.username);
-        m.data = strdup(fleck.ip);
-        m.data = strdup(fleck.port);
+        m.dataLength = strlen(buffer);
+        m.data = strdup(buffer);
+        m.timestamp = convertToHex();
+       //m.checksum = calculateChecksum(m.data, m.dataLength);
         sendSocketMessage(gothamSocketFD, m);
-        free(m.dataLength);
         free(m.data);
     } else if (isExit == TRUE) {
         m.type = 0x07;
-        m.dataLength = strlen("EXIT");
+        char *buffer;
+        asprintf(&buffer, "%s", fleck.username);    
+        m.dataLength = strlen(buffer);    
         m.data = strdup(fleck.username);
         sendSocketMessage(gothamSocketFD, m);
+        free(m.data);
     }
 
     // Receive response
@@ -141,10 +147,7 @@ int connectToGotham(int isExit) {
 
     // handle response
     if (isExit == FALSE) {
-        if (response.type == 0x01 && strcmp(response.data, "CON_OK") == 0) {
-            connectToHarley(response);
-            connectToEnigma(response);
-        } else if (response.type == 0x01 && strcmp(response.data, "CON_KO") == 0) {
+         if (response.type == 0x01 && strcmp(response.data, "CON_KO") == 0) {
             printError("Error connecting to Gotham NO SERVERS Harley/Enigma\n");
         }
 
@@ -153,9 +156,7 @@ int connectToGotham(int isExit) {
 
         return FALSE;
     } else if (isExit == TRUE) {
-        if (response.type == 0x07 && strcmp(response.data, "CON_OK") == 0) {
-            printToConsole("Fleck disconnected from Gotham\n");
-        } else if (response.type == 0x07 && strcmp(response.data, "CON_KO") == 0) {
+         if (response.type == 0x07 && strcmp(response.data, "CON_KO") == 0) {
             printError("Error disconnecting from Gotham\n");
             logout();
         }
@@ -168,6 +169,33 @@ int connectToGotham(int isExit) {
     // It should never reach this point, but if it arrives, it returns -1.
     free(response.data);
     return -1;
+}
+
+
+/**
+ * @brief If the Fleck is connected to the Enigma/Harlay server, it disconnects from it and sends a message to the Gotham server
+ */
+void logout() {
+    //pthread_mutex_lock(&isConnectedMu);
+    if (isDistorsionConnected == TRUE) {
+        SocketMessage m;
+        m.type = 0x07;
+        m.dataLength = strlen(fleck.username);
+        m.data = strdup(fleck.username);
+
+        sendSocketMessage(distorsionSocketFD, m);
+
+        free(m.data);
+
+        sleep(1);
+        isDistorsionConnected = FALSE;
+        //pthread_mutex_unlock(&isConnectedMu);
+
+        //pthread_join(listenThread, NULL);
+        close(distorsionSocketFD);
+        return;
+    }
+   // pthread_mutex_unlock(&isConnectedMu);
 }
 
 
