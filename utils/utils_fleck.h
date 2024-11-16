@@ -7,12 +7,10 @@
 
 #include "../struct_definitions.h"
 
-
 // Osar.romero - Marc.marza
 
-
+extern int gothamSocketFD, distorsionSocketFD;
 extern Fleck fleck;
-
 
 void listMedia();
 void listText();

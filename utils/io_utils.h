@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <stdio.h>
 
-
 // Osar.romero - Marc.marza
 
 void printToConsole(char *x);

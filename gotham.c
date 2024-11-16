@@ -154,7 +154,7 @@ void *listenToDistorsionWorkers()
         SocketMessage m = getSocketMessage(workerSocketFD);
 
         if (m.type == 0x01)
-{
+        {
             printToConsole("New worker connected to Gotham\n");
         }
     }

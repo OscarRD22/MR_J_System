@@ -5,44 +5,41 @@
 #include <string.h>
 #include <unistd.h>
 
-
-
 // Osar.romero - Marc.marza
-
-
 
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
 
 // This is the client
- Harley_enigma enigma;
+Harley_enigma enigma;
+int gothamSocketFD;
 
-
-
-
-
-void closeFds() {
-    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
-}
-
-void freeMemory() {
+void freeMemory()
+{
     free(enigma.gotham_ip);
     free(enigma.fleck_ip);
     free(enigma.folder);
     free(enigma.worker_type);
 }
 
+void closeFds()
+{
+    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
+}
 
- void closeProgramSignal() {
+void closeProgramSignal()
+{
     freeMemory();
     closeFds();
     exit(0);
 }
 
-void saveEnigma(char *filename) {
+void saveEnigma(char *filename)
+{
     int data_file_fd = open(filename, O_RDONLY);
-    if (data_file_fd < 0) {
-        printError("Error while opening the Fleck file");
+    if (data_file_fd < 0)
+    {
+        printError("Error while opening the Enigma file");
         exit(1);
     }
 
@@ -54,30 +51,48 @@ void saveEnigma(char *filename) {
 
     enigma.folder = readUntil('\n', data_file_fd);
     enigma.worker_type = readUntil('\n', data_file_fd);
-
 }
 
-
-
-
-void initalSetup(int argc) {
-    if (argc < 2) {
+void initalSetup(int argc)
+{
+    if (argc < 2)
+    {
         printError("ERROR: Not enough arguments provided\n");
         exit(1);
     }
     signal(SIGINT, closeProgramSignal);
 }
 
+void connectToGotham()
+{
+    // Creado y conectado a Gotham
+    if ((gothamSocketFD = createAndConnectSocket(enigma.gotham_ip, enigma.gotham_port, FALSE)) < 0)
+    {
+        printError("Error connecting to Gotham\n");
+        exit(1);
+    }
 
+    // CONECTADO A GOTHAM
+    SocketMessage m;
+    char *buffer;
+    asprintf(&buffer, "%s&%s&%d&%s&%d&%s&%s", enigma.fleck_ip, enigma.gotham_ip, enigma.gotham_port, enigma.fleck_ip, enigma.fleck_port, enigma.folder, enigma.worker_type);
+    m.type = 0x02;
+    m.dataLength = strlen(buffer);
+    m.data = strdup(buffer);
+    // m.timestamp = convertToHex();
+    // Falta hacer la funcionchecksum
+    // m.checksum = 2;
+    sendSocketMessage(gothamSocketFD, m);
+    free(m.data);
+    close(gothamSocketFD);
+}
 
-
-
-
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     initalSetup(argc);
 
     saveEnigma(argv[1]);
-
+    connectToGotham();
     freeMemory();
     return 0;
 }

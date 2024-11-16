@@ -9,30 +9,33 @@
 
 // Osar.romero - Marc.marza
 
-void printToConsole(char *x) {
+void printToConsole(char *x)
+{
     write(1, x, strlen(x));
     fflush(stdout);
 }
 
-
-
-void printError(char *x) {
+void printError(char *x)
+{
     write(2, x, strlen(x));
     fflush(stderr);
 }
 
-char *readUntil(char del, int fd) {
+char *readUntil(char del, int fd)
+{
     char *chain = malloc(sizeof(char) * 1);
     char c;
     int i = 0, n;
 
     n = read(fd, &c, 1);
 
-    while (c != del && n != 0 && n != -1) {
+    while (c != del && n != 0 && n != -1)
+    {
         chain[i] = c;
         i++;
         char *temp = realloc(chain, (sizeof(char) * (i + 1)));
-        if (temp == NULL) {
+        if (temp == NULL)
+        {
             printError("Error reallocating memory\n");
             free(chain);
             return NULL;
@@ -46,13 +49,17 @@ char *readUntil(char del, int fd) {
     return chain;
 }
 
-void validateString(char *str) {
-    if (strchr(str, '&') != NULL) {
+void validateString(char *str)
+{
+    if (strchr(str, '&') != NULL)
+    {
         printError("WARNING: String containts &\n");
         char *newStr = malloc((strlen(str) + 1) * sizeof(char));
         int j = 0;
-        for (size_t i = 0; i < strlen(str); i++) {
-            if (str[i] != '&') {
+        for (size_t i = 0; i < strlen(str); i++)
+        {
+            if (str[i] != '&')
+            {
                 newStr[j] = str[i];
                 j++;
             }
@@ -64,10 +71,12 @@ void validateString(char *str) {
     }
 }
 
-void printArray(char *array) {
+void printArray(char *array)
+{
     printToConsole("Printing array\n");
     char *buffer;
-    for (size_t i = 0; i < strlen(array); i++) {
+    for (size_t i = 0; i < strlen(array); i++)
+    {
         asprintf(&buffer, "{%c}\n", array[i]);
         printToConsole(buffer);
         free(buffer);
@@ -75,20 +84,18 @@ void printArray(char *array) {
     printToConsole("Finished printing array\n");
 }
 
-
-
-char *convertToHex(){
+char *convertToHex()
+{
     time_t timestamp;
     timestamp = time(NULL);
-    char *hexString = malloc(9*sizeof(char));
+    char *hexString = malloc(9 * sizeof(char));
 
-    if(hexString == NULL){
+    if (hexString == NULL)
+    {
         printError("Error:");
     }
 
     snprintf(hexString, 9, "%08lX", (unsigned long)timestamp);
 
     return hexString;
-
-
 }

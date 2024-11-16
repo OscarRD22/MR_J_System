@@ -5,12 +5,9 @@
 
 // Osar.romero - Marc.marza
 
-
 #define TRUE 1
 #define FALSE 0
 #define MAX_WORKERS 20
-
-
 
 typedef struct
 {
@@ -21,22 +18,24 @@ typedef struct
     char timestamp[4];
 } SocketMessage;
 
-
-typedef struct {
+typedef struct
+{
     char *username;
     char *folder;
     char *ip;
     int port;
 } Fleck;
 
-typedef struct {
+typedef struct
+{
     char *fleck_ip;
     int fleck_port;
     char *harley_enigma_ip;
     int harley_enigma_port;
 } Gotham;
 
-typedef struct {
+typedef struct
+{
     char *gotham_ip;
     int gotham_port;
     char *fleck_ip;
@@ -44,7 +43,6 @@ typedef struct {
     char *folder;
     char *worker_type;
 } Harley_enigma;
-
 
 typedef struct
 {
