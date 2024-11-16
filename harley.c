@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "utils/utils_connect.h"
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
 
@@ -14,11 +15,23 @@
 
 // This is the client
  Harley_enigma harley;
+int gothamSocketFD;
+
+void freeMemory() {
+    free(harley.gotham_ip);
+    free(harley.fleck_ip);
+    free(harley.folder);
+    free(harley.worker_type);
+}
+
+void closeFds() {
+    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
+}
 
 void saveHarley(char *filename) {
     int data_file_fd = open(filename, O_RDONLY);
     if (data_file_fd < 0) {
-        printError("Error while opening the Fleck file");
+        printError("Error while opening the Harley file");
         exit(1);
     }
 
@@ -39,9 +52,7 @@ void closeProgramSignal() {
     exit(0);
 }
 
-void closeFds() {
-    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
-}
+
 
 void initalSetup(int argc) {
     if (argc < 2) {
@@ -52,12 +63,39 @@ void initalSetup(int argc) {
 }
 
 
-void freeMemory() {
-    free(harley.gotham_ip);
-    free(harley.fleck_ip);
-    free(harley.folder);
-    free(harley.worker_type);
+void connectToGotham(){
+//Creado y conectado a Gotham
+if((gothamSocketFD = createAndConnectSocket(harley.gotham_ip, harley.gotham_port, FALSE)) < 0){
+    printError("Error connecting to Gotham\n");
+    exit(1);
 }
+
+
+// CONNECTED TO GOTHAM
+SocketMessage m;
+char *buffer;
+asprintf(&buffer, "%s&%s&%d", harley.worker_type, harley.fleck_ip, harley.fleck_port);
+m.type = 0x01;
+m.dataLength = strlen(buffer);
+m.data = strdup(buffer);
+//m.timestamp = convertToHex();
+//Falta hacer la funcionchecksum
+m.checksum = 2;
+sendSocketMessage(gothamSocketFD, m);
+free(m.data);
+
+// Receive response
+SocketMessage response = getSocketMessage(gothamSocketFD);
+
+// handle response
+free(response.data);
+close(gothamSocketFD);
+
+
+
+}
+
+
 
 
 int main(int argc, char *argv[]) {
@@ -65,6 +103,7 @@ int main(int argc, char *argv[]) {
 
     saveHarley(argv[1]);
 
+    connectToGotham();
     freeMemory();
     return 0;
 }

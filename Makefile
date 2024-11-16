@@ -18,13 +18,13 @@ utils_fleck.o: utils/utils_fleck.c utils_connect.o
 Fleck: fleck.c io_utils.o utils_fleck.o utils_connect.o
 	$(CC) $(CFLAGS) -o Fleck fleck.c io_utils.o utils_fleck.o utils_connect.o $(FFLAGS)
 
-Gotham: gotham.c io_utils.o utils_connect.o utils_connect.o io_utils.o
+Gotham: gotham.c io_utils.o utils_connect.o io_utils.o
 	$(CC) $(CFLAGS) -o Gotham gotham.c utils_connect.o io_utils.o $(FFLAGS)
 
-Harley: harley.c io_utils.o utils_connect.o utils_connect.o io_utils.o
+Harley: harley.c io_utils.o  utils_connect.o io_utils.o
 	$(CC) $(CFLAGS) -o Harley harley.c utils_connect.o io_utils.o $(FFLAGS)
 
-Enigma: enigma.c io_utils.o utils_connect.o utils_connect.o io_utils.o
+Enigma: enigma.c io_utils.o utils_connect.o io_utils.o
 	$(CC) $(CFLAGS) -o Enigma enigma.c utils_connect.o io_utils.o $(FFLAGS)
 
 # Clean commands

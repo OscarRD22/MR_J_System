@@ -9,7 +9,6 @@
 #include "utils/io_utils.h"
 #include "utils/utils_fleck.h"
 
-
 // Osar.romero - Marc.marza
 
 
@@ -96,11 +95,12 @@ void commandInterpretter() {
             asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n", fleck.username);
             printToConsole(buffer);
             free(buffer);            
-        
+            // Vienen una ip con server de Harley/Enigma
+            
              connectToGotham(FALSE);
              free(command);
              command = NULL;
-            // Vienen una ip con server de Harley/Enigma
+           
             // conectToEnigma();
         } else if (strcasecmp(command, "LOGOUT") == 0) {
             printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");

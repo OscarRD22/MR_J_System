@@ -8,6 +8,7 @@
 
 #define TRUE 1
 #define FALSE 0
+#define MAX_WORKERS 20
 
 
 
@@ -17,7 +18,7 @@ typedef struct
     int dataLength;
     char *data;
     int checksum;
-    char *timestamp;
+    char timestamp[4];
 } SocketMessage;
 
 
@@ -43,5 +44,15 @@ typedef struct {
     char *folder;
     char *worker_type;
 } Harley_enigma;
+
+
+typedef struct
+{
+    int numOfWorkers;
+    int WorkerPort;
+    char *WorkerIP;
+    char *WorkerServername;
+    char *Workers[MAX_WORKERS];
+} WorkerServer;
 
 #endif

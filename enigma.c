@@ -17,6 +17,28 @@
 // This is the client
  Harley_enigma enigma;
 
+
+
+
+
+void closeFds() {
+    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
+}
+
+void freeMemory() {
+    free(enigma.gotham_ip);
+    free(enigma.fleck_ip);
+    free(enigma.folder);
+    free(enigma.worker_type);
+}
+
+
+ void closeProgramSignal() {
+    freeMemory();
+    closeFds();
+    exit(0);
+}
+
 void saveEnigma(char *filename) {
     int data_file_fd = open(filename, O_RDONLY);
     if (data_file_fd < 0) {
@@ -35,15 +57,8 @@ void saveEnigma(char *filename) {
 
 }
 
-void closeProgramSignal() {
-    freeMemory();
-    closeFds();
-    exit(0);
-}
 
-void closeFds() {
-    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
-}
+
 
 void initalSetup(int argc) {
     if (argc < 2) {
@@ -54,12 +69,8 @@ void initalSetup(int argc) {
 }
 
 
-void freeMemory() {
-    free(enigma.gotham_ip);
-    free(enigma.fleck_ip);
-    free(enigma.folder);
-    free(enigma.worker_type);
-}
+
+
 
 
 int main(int argc, char *argv[]) {

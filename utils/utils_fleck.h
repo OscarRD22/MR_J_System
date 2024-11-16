@@ -16,7 +16,5 @@ extern Fleck fleck;
 
 void listMedia();
 void listText();
-
-
 int connectToGotham(int isExit);
 void logout();

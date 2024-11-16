@@ -35,9 +35,9 @@ SocketMessage getSocketMessage(int clientFD) {
     if (numBytes < 1) {
         printError("Error reading the type\n");
     }
-    // asprintf(&buffer, "Type: 0x%02x\n", type);
-    // printToConsole(buffer);
-    // free(buffer);
+     asprintf(&buffer, "Type: 0x%02x\n", type);
+     printToConsole(buffer);
+     free(buffer);
     message.type = type;
 
     // get the data length
@@ -46,20 +46,11 @@ SocketMessage getSocketMessage(int clientFD) {
     if (numBytes < (ssize_t)sizeof(unsigned short)) {
         printError("Error reading the Data Length\n");
     }
-    // asprintf(&buffer, "Data length: %u\n", dataLength);
-    // printToConsole(buffer);
-    // free(buffer);
+     asprintf(&buffer, "Data length: %u\n", dataLength);
+     printToConsole(buffer);
+     free(buffer);
     message.dataLength = dataLength;
 
-    // get the checksum
-    //message.checksum = calculateChecksum(message.data, numBytes);
-
-
-    // get the timestamp
-    message.timestamp = convertToHex();
-    asprintf(&buffer, "Timestamp: %s\n", message.timestamp);
-    printToConsole(buffer);
-    free(buffer);
     // get the data
     char *data = malloc(sizeof(char) * 256 - 9 - dataLength);
     numBytes = read(clientFD, data, 256 - 9 - dataLength);
@@ -71,13 +62,36 @@ SocketMessage getSocketMessage(int clientFD) {
         message.data = malloc(sizeof(char) * numBytes);
         memcpy(message.data, data, numBytes);
     }
-    /*asprintf(&buffer, "Data: %s\n", data);
+    asprintf(&buffer, "Data: %s\n", data);
     printToConsole(buffer);
-    free(buffer);*/
+    free(buffer);
 
-    // message.data = strdup(data);
+ // get the checksum 2bytes
+    char checksum[2];
+    numBytes = read(clientFD, checksum, 2);
+    if (numBytes < 2) {
+        printError("Error reading the checksum\n");
+    }
+    asprintf(&buffer, "Checksum: %c%c\n", checksum[0], checksum[1]);
+    printToConsole(buffer);
+    free(buffer);
+    //Falta castear el message.checksum
+    //message.checksum = checksum;
 
-    free(data);
+
+    // get the timestamp
+    char timestamp[4];
+    numBytes = read(clientFD, timestamp, 4);
+    if (numBytes < 4) {
+        printError("Error reading the timestamp\n");
+    }
+    asprintf(&buffer, "Timestamp: %c%c%c%c\n", timestamp[0], timestamp[1], timestamp[2], timestamp[3]);
+    printToConsole(buffer);
+    free(buffer);
+    message.timestamp[0] = timestamp[0];
+    message.timestamp[1] = timestamp[1];
+    message.timestamp[2] = timestamp[2];
+    message.timestamp[3] = timestamp[3];
 
     return message;
 }
@@ -207,6 +221,7 @@ void sendSocketMessage(int socketFD, SocketMessage message) {
     buffer[1] = (message.dataLength & 0xFF);
     buffer[2] = ((message.dataLength >> 8) & 0xFF);
 
+
    
     size_t i;
     int start_i = 3;
@@ -216,12 +231,21 @@ void sendSocketMessage(int socketFD, SocketMessage message) {
     }
 
     int start_j = strlen(message.data) + start_i;
-    for (int j = 0; j < 256 - 9; j++) {
-        buffer[j + start_j] = '\0';
-        // printf("buffer[%d] = %c\n", j + start_j, buffer[j + start_j]);
+    for (int j = 0; j < (256 - 9 - strlen(message.data) +1 ); j++) {
+        buffer[j + start_j] = '@';
+         printf("buffer[%d] = %c\n", j + start_j, buffer[j + start_j]);
     }
 
-    
+
+//Enviar el checksum esta harcode 
+    buffer[251] = 'C';
+    buffer[252] = 'H';
+
+//Enviar el timestamp esta harcode
+    buffer[253] = 'T';
+    buffer[254] = 'I';
+    buffer[255] = 'M';
+    buffer[256] = 'E';
 
     write(socketFD, buffer, 256);
     free(buffer);

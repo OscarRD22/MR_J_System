@@ -105,9 +105,6 @@ void listText() {
     }
 }
 
-
-
-
 /**
  * @brief Connects to the Gotham server with stable connection
  * @param isExit to know if the Fleck is exiting (need to send disconnect to Gotham) or not (need to connect to Harly/Enigma)
@@ -116,11 +113,11 @@ void listText() {
 int connectToGotham(int isExit) {
     if ((gothamSocketFD = createAndConnectSocket(fleck.ip, fleck.port, FALSE)) < 0) {
         printError("Error connecting to Gotham\n");
+
         exit(1);
     }
 
     // CONNECTED TO GOTHAM
-    
     SocketMessage m;
     if (isExit == FALSE) {
         char *buffer;
@@ -128,8 +125,9 @@ int connectToGotham(int isExit) {
         m.type = 0x01;
         m.dataLength = strlen(buffer);
         m.data = strdup(buffer);
-        m.timestamp = convertToHex();
-       //m.checksum = calculateChecksum(m.data, m.dataLength);
+        //m.timestamp = convertToHex();
+        //Falta hacer la funcionchecksum
+        //m.checksum = 2;
         sendSocketMessage(gothamSocketFD, m);
         free(m.data);
     } else if (isExit == TRUE) {
@@ -170,7 +168,6 @@ int connectToGotham(int isExit) {
     free(response.data);
     return -1;
 }
-
 
 /**
  * @brief If the Fleck is connected to the Enigma/Harlay server, it disconnects from it and sends a message to the Gotham server

@@ -80,13 +80,13 @@ void printArray(char *array) {
 char *convertToHex(){
     time_t timestamp;
     timestamp = time(NULL);
-    char *hexString = malloc(4*sizeof(char));
+    char *hexString = malloc(9*sizeof(char));
 
     if(hexString == NULL){
         printError("Error:");
     }
 
-    snprintf(hexString, 4, "%08lX", (unsigned long)timestamp);
+    snprintf(hexString, 9, "%08lX", (unsigned long)timestamp);
 
     return hexString;
 
