@@ -84,18 +84,11 @@ void printArray(char *array)
     printToConsole("Finished printing array\n");
 }
 
-char *convertToHex()
-{
-    time_t timestamp;
-    timestamp = time(NULL);
-    char *hexString = malloc(9 * sizeof(char));
-
-    if (hexString == NULL)
-    {
-        printError("Error:");
+unsigned short calculateChecksum(char *data, size_t length) {
+    unsigned int sum = 0;
+    for (size_t i = 0; i < length; ++i) {
+        sum += (unsigned char)data[i];
     }
-
-    snprintf(hexString, 9, "%08lX", (unsigned long)timestamp);
-
-    return hexString;
+    return (unsigned short)(sum % 65536);
 }
+

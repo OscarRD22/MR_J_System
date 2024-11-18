@@ -7,10 +7,10 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include "../struct_definitions.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 #include <dirent.h>
 
 // Osar.romero - Marc.marza
@@ -22,79 +22,81 @@
  */
 SocketMessage getSocketMessage(int clientFD)
 {
-    char *buffer;
     SocketMessage message;
+    char buffer[256];
     ssize_t numBytes;
 
-    // get the type
-    uint8_t type;
-    numBytes = read(clientFD, &type, 1);
-    if (numBytes < 1)
-    {
-        printError("Error reading the type\n");
-    }
-    asprintf(&buffer, "Type: 0x%02x\n", type);
-    printToConsole(buffer);
-    free(buffer);
-    message.type = type;
+    message.data = NULL;
 
-    // get the data length
-    uint16_t dataLength;
-    numBytes = read(clientFD, &dataLength, sizeof(unsigned short));
-    if (numBytes < (ssize_t)sizeof(unsigned short))
+    // Read the type (1 byte)
+    numBytes = read(clientFD, &message.type, 1);
+    if (numBytes != 1)
     {
-        printError("Error reading the Data Length\n");
+        printError("Error reading the message type\n");
+        exit(1);
     }
-    asprintf(&buffer, "Data length: %u\n", dataLength);
-    printToConsole(buffer);
-    free(buffer);
+
+    // Read the data length (2 bytes, little-endian)
+    uint16_t dataLength;
+    numBytes = read(clientFD, &dataLength, sizeof(uint16_t));
+    if (numBytes != sizeof(uint16_t))
+    {
+        printError("Error reading the data length\n");
+        exit(1);
+    }
     message.dataLength = dataLength;
 
-    // get the data
-    char *data = malloc(sizeof(char) * 256 - 9 - dataLength);
-    numBytes = read(clientFD, data, 256 - 9 - dataLength);
+    // Read the data
 
-    if (numBytes < 256 - 9 - dataLength)
+    if (dataLength > 0)
     {
-        printError("Error reading the data\n");
-        free(data);
+        message.data = malloc(dataLength + 1); // +1 para '\0' si es texto
+        if (!message.data)
+        {
+            printError("Error allocating memory for data\n");
+            exit(1);
+        }
+        numBytes = read(clientFD, message.data, dataLength);
+        if (numBytes != dataLength)
+        {
+            printError("Error reading the message data\n");
+            free(message.data);
+            exit(1);
+        }
+        message.data[dataLength] = '\0'; // Asegurar terminación si es texto
     }
-    else
-    {
-        message.data = malloc(sizeof(char) * numBytes);
-        memcpy(message.data, data, numBytes);
-    }
-    asprintf(&buffer, "Data: %s\n", data);
-    printToConsole(buffer);
-    free(buffer);
 
-    // get the checksum 2bytes
-    char checksum[2];
-    numBytes = read(clientFD, checksum, 2);
-    if (numBytes < 2)
+    // Read the checksum (2 bytes, little-endian)
+    uint16_t checksum;
+    numBytes = read(clientFD, &checksum, sizeof(uint16_t));
+    if (numBytes != sizeof(uint16_t))
     {
         printError("Error reading the checksum\n");
+        free(message.data);
+        exit(1);
     }
-    asprintf(&buffer, "Checksum: %c%c\n", checksum[0], checksum[1]);
-    printToConsole(buffer);
-    free(buffer);
-    // Falta castear el message.checksum
-    // message.checksum = checksum;
+    message.checksum = checksum;
 
-    // get the timestamp
-    char timestamp[4];
-    numBytes = read(clientFD, timestamp, 4);
-    if (numBytes < 4)
+    // Read the timestamp (4 bytes, little-endian)
+    uint32_t timestamp;
+    numBytes = read(clientFD, &timestamp, sizeof(uint32_t));
+    if (numBytes != sizeof(uint32_t))
     {
         printError("Error reading the timestamp\n");
+        free(message.data);
+        exit(1);
     }
-    asprintf(&buffer, "Timestamp: %c%c%c%c\n", timestamp[0], timestamp[1], timestamp[2], timestamp[3]);
-    printToConsole(buffer);
-    free(buffer);
-    message.timestamp[0] = timestamp[0];
-    message.timestamp[1] = timestamp[1];
-    message.timestamp[2] = timestamp[2];
-    message.timestamp[3] = timestamp[3];
+    message.timestamp = timestamp;
+
+// Debugging logs (optional)
+   snprintf(buffer, sizeof(buffer), "Type: 0x%02x\nData length: %u\nChecksum: 0x%04x\nTimestamp: %u\n",
+            message.type, message.dataLength, message.checksum, message.timestamp);
+   printToConsole(buffer);
+
+   if (message.data) {
+       snprintf(buffer, sizeof(buffer), "Data: %s\n", message.data);
+       printToConsole(buffer);
+   }
 
     return message;
 }
@@ -233,35 +235,52 @@ int createAndListenSocket(char *IP, int port)
 void sendSocketMessage(int socketFD, SocketMessage message)
 {
     char *buffer = malloc(sizeof(char) * 256);
+    if (!buffer)
+    {
+        perror("Failed to allocate memory for buffer");
+        exit(1);
+    }
+    // Set type
     buffer[0] = message.type;
+    // Set dataLength
     buffer[1] = (message.dataLength & 0xFF);
     buffer[2] = ((message.dataLength >> 8) & 0xFF);
 
+    // Set data
     size_t i;
-    int start_i = 3;
-    for (i = 0; i < strlen(message.data) && message.data != NULL; i++)
+    for (i = 0; i < message.dataLength && i < 256 - 9; i++)
     {
-        buffer[i + start_i] = message.data[i];
-        // printf("buffer);
+        buffer[3 + i] = message.data[i];
     }
 
-    int start_j = strlen(message.data) + start_i;
-    for (int j = 0; j < (256 - 9 - strlen(message.data) + 1); j++)
-    {
-        buffer[j + start_j] = '@';
-        printf("buffer[%d] = %c\n", j + start_j, buffer[j + start_j]);
+    // Fill remaining buffer with padding '@'
+    for (size_t j = 3 + i; j < 256 - 6; j++)
+    { // Hasta antes del checksum y timestamp
+        buffer[j] = '@';
     }
 
-    // Enviar el checksum esta harcode
-    buffer[251] = 'C';
-    buffer[252] = 'H';
+    // Calculate and set checksum
+    unsigned short checksum = 0;
+    for (size_t k = 0; k < 250; k++)
+    { // Excluyendo el espacio del checksum y timestamp
+        checksum += (unsigned char)buffer[k];
+    }
+    checksum %= 65536;
+    buffer[250] = (checksum & 0xFF); // Byte menos significativo
+    buffer[251] = ((checksum >> 8) & 0xFF);
 
-    // Enviar el timestamp esta harcode
-    buffer[253] = 'T';
-    buffer[254] = 'I';
-    buffer[255] = 'M';
-    buffer[256] = 'E';
+    // Set timestamp
+    unsigned int timestamp = (unsigned int)time(NULL); // Epoch time
+    buffer[252] = (timestamp & 0xFF);                  // Byte 1
+    buffer[253] = ((timestamp >> 8) & 0xFF);           // Byte 2
+    buffer[254] = ((timestamp >> 16) & 0xFF);          // Byte 3
+    buffer[255] = ((timestamp >> 24) & 0xFF);          // Byte 4
 
-    write(socketFD, buffer, 256);
+    // Send the buffer through the socket
+    if (write(socketFD, buffer, 256) < 0)
+    {
+        perror("Failed to send data through socket");
+    }
+
     free(buffer);
 }

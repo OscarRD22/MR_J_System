@@ -12,10 +12,10 @@
 typedef struct
 {
     uint8_t type;
-    int dataLength;
+    uint16_t dataLength;
     char *data;
-    int checksum;
-    char timestamp[4];
+    uint16_t checksum;
+    uint32_t timestamp;
 } SocketMessage;
 
 typedef struct

@@ -1,7 +1,7 @@
 #include "io_utils.h"
 #include "utils_fleck.h"
 #include "utils_connect.h"
-
+#include <time.h>
 #include "../struct_definitions.h"
 
 // Osar.romero - Marc.marza
@@ -145,9 +145,8 @@ int connectToGotham(int isExit)
         m.type = 0x01;
         m.dataLength = strlen(buffer);
         m.data = strdup(buffer);
-        // m.timestamp = convertToHex();
-        // Falta hacer la funcionchecksum
-        // m.checksum = 2;
+        m.timestamp = (unsigned int)time(NULL);
+        m.checksum = calculateChecksum(buffer, strlen(buffer));
         sendSocketMessage(gothamSocketFD, m);
         free(m.data);
     }

@@ -112,7 +112,7 @@ void *listenToFleck()
             printError("Error accepting Fleck\n");
             exit(1);
         }
-        // AQUI NO LLEGA//
+        
         printToConsole("Fleck connected\n");
 
         SocketMessage m = getSocketMessage(fleckSocketFD);

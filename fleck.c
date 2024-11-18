@@ -7,6 +7,7 @@
 
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
+#include "utils/utils_connect.h"
 #include "utils/utils_fleck.h"
 
 // Osar.romero - Marc.marza
@@ -124,8 +125,9 @@ void commandInterpretter()
         }
         else if (strcasecmp(command, "LOGOUT") == 0)
         {
+            // DESCONECTAR SOCKETS Y SALIR
             printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
-            logout(); // DESCONECTAR SOCKETS Y SALIR
+            logout(); 
             continueReading = FALSE;
         }
         else

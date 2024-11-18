@@ -25,8 +25,9 @@ void freeMemory()
 
 void closeFds()
 {
-    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
-}
+if (gothamSocketFD > 0) {
+        close(gothamSocketFD);
+    }}
 
 void saveHarley(char *filename)
 {

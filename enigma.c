@@ -4,11 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 // Osar.romero - Marc.marza
 
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
+#include "utils/utils_connect.h"
 
 // This is the client
 Harley_enigma enigma;
@@ -24,7 +26,10 @@ void freeMemory()
 
 void closeFds()
 {
-    // ESTO SERA PARA CERRAR LOS SOCKETS CUANDO ESTEN QUE SERAN GLOBALES
+    if (gothamSocketFD > 0)
+    {
+        close(gothamSocketFD);
+    }
 }
 
 void closeProgramSignal()
@@ -79,10 +84,10 @@ void connectToGotham()
     m.type = 0x02;
     m.dataLength = strlen(buffer);
     m.data = strdup(buffer);
-    // m.timestamp = convertToHex();
-    // Falta hacer la funcionchecksum
-    // m.checksum = 2;
+    m.timestamp = (unsigned int)time(NULL);
+    m.checksum = calculateChecksum(buffer, strlen(buffer));
     sendSocketMessage(gothamSocketFD, m);
+    free(buffer);
     free(m.data);
     close(gothamSocketFD);
 }
@@ -90,9 +95,8 @@ void connectToGotham()
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
-
     saveEnigma(argv[1]);
     connectToGotham();
-    freeMemory();
+    closeProgramSignal();
     return 0;
 }
