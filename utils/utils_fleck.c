@@ -217,6 +217,7 @@ void logout()
         // pthread_mutex_unlock(&isConnectedMu);
 
         // pthread_join(listenThread, NULL);
+        // printToConsole("Thread joined\n");
         close(distorsionSocketFD);
         return;
     }

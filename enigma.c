@@ -16,6 +16,9 @@
 Harley_enigma enigma;
 int gothamSocketFD;
 
+/**
+ * @brief Free the memory allocated
+ */
 void freeMemory()
 {
     free(enigma.gotham_ip);
@@ -24,6 +27,9 @@ void freeMemory()
     free(enigma.worker_type);
 }
 
+/**
+ * @brief Closes the file descriptors if they are open
+ */
 void closeFds()
 {
     if (gothamSocketFD > 0)
@@ -32,13 +38,21 @@ void closeFds()
     }
 }
 
+/**
+ * @brief Closes the program correctly cleaning the memory and closing the file descriptors
+ */
 void closeProgramSignal()
 {
+    printToConsole("\nClosing program Enigma\n");
     freeMemory();
     closeFds();
     exit(0);
 }
 
+/**
+ * @brief Saves the information of the Enigma file into the Enigma struct
+ *  @param filename The name of the file to read
+ */
 void saveEnigma(char *filename)
 {
     int data_file_fd = open(filename, O_RDONLY);
@@ -58,6 +72,10 @@ void saveEnigma(char *filename)
     enigma.worker_type = readUntil('\n', data_file_fd);
 }
 
+/**
+ * @brief Checks if the number of arguments is correct
+ * @param argc The number of arguments
+ */
 void initalSetup(int argc)
 {
     if (argc < 2)
@@ -68,6 +86,9 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
+/**
+ * @brief Connects to Gotham
+ */
 void connectToGotham()
 {
     // Creado y conectado a Gotham
@@ -77,7 +98,7 @@ void connectToGotham()
         exit(1);
     }
 
-    // CONECTADO A GOTHAM
+    // CONECTADO TO GOTHAM
     SocketMessage m;
     char *buffer;
     asprintf(&buffer, "%s&%s&%d&%s&%d&%s&%s", enigma.fleck_ip, enigma.gotham_ip, enigma.gotham_port, enigma.fleck_ip, enigma.fleck_port, enigma.folder, enigma.worker_type);
@@ -90,13 +111,28 @@ void connectToGotham()
     free(buffer);
     free(m.data);
     close(gothamSocketFD);
+
+    // Receive response
+    SocketMessage response = getSocketMessage(gothamSocketFD);
+
+    // handle response
+    free(response.data);
+    close(gothamSocketFD);
 }
 
+/**
+ * @brief Main function of the Enigma server
+ * @param argc The number of arguments
+ * @param argv The arguments
+ * @return 0 if the program ends correctly
+ */
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
     saveEnigma(argv[1]);
     connectToGotham();
+    // No hace falta porque ya lo hace en la funcion closeProgramSignal()
+    // freeMemory();
     closeProgramSignal();
     return 0;
 }

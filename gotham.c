@@ -23,6 +23,10 @@ pthread_t FleckThread, DistorsionWorkersThread;
 int terminate = FALSE;
 WorkerServer *workers;
 
+/**
+ * @brief Saves the information of the Gotham file into the Gotham struct
+ *  @param filename The name of the file to read
+ */
 void saveGotham(char *filename)
 {
     data_file_fd = open(filename, O_RDONLY);
@@ -67,21 +71,28 @@ void closeFds()
     }
 }
 /**
- * @brief Free the memory allocated
+ * @brief Frees the memory allocated for the Gotham struct
  */
 void freeMemory()
 {
     free(gotham.fleck_ip);
     free(gotham.harley_enigma_ip);
 }
-
+/**
+ * @brief Closes the program correctly cleaning the memory and closing the file descriptors
+ */
 void closeProgramSignal()
 {
+    printToConsole("\nClosing program\n");
     freeMemory();
     closeFds();
     exit(0);
 }
 
+/**
+ * @brief Checks if the number of arguments is correct
+ * @param argc The number of arguments
+ */
 void initalSetup(int argc)
 {
     if (argc < 2)
@@ -92,6 +103,9 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
+/**
+ * @brief Listens to the Fleck server and sends the information of the workers server with less Flecks connected
+ */
 void *listenToFleck()
 {
     printToConsole("Listening to Fleck\n\n");
@@ -112,7 +126,7 @@ void *listenToFleck()
             printError("Error accepting Fleck\n");
             exit(1);
         }
-        
+
         printToConsole("Fleck connected\n");
 
         SocketMessage m = getSocketMessage(fleckSocketFD);
@@ -126,6 +140,9 @@ void *listenToFleck()
     return NULL;
 }
 
+/**
+ * @brief Listens to the Workers distorsion server Enigma/Harley and adds it to the list
+ */
 void *listenToDistorsionWorkers()
 {
     printToConsole("Listening to WORKERS\n\n");
@@ -153,15 +170,22 @@ void *listenToDistorsionWorkers()
         // ESTO ES BLOCKING
         SocketMessage m = getSocketMessage(workerSocketFD);
 
-        if (m.type == 0x01)
-        {
-            printToConsole("New worker connected to Gotham\n");
-        }
+        /* if (m.type == 0x02)
+         {
+             printToConsole("New worker connected to Gotham\n");
+         }
+         */
     }
 
     return NULL;
 }
 
+/**
+ * @brief Main function of the Gotham server
+ * @param argc The number of arguments
+ * @param argv The arguments
+ * @return 0 if the program ends correctly
+ */
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
@@ -170,7 +194,8 @@ int main(int argc, char *argv[])
     printToConsole("Gotham server initialized\n\n");
     printToConsole("Waiting for connections...\n\n");
 
-    if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, NULL) != 0)
+    // Retorna 0 si tiene éxito o un código de error si falla
+    if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, "Thread Fleck creado\n") != 0)
     {
         printError("Error creating Fleck thread\n");
         exit(1);

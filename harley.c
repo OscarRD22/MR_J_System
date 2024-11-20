@@ -15,6 +15,9 @@
 Harley_enigma harley;
 int gothamSocketFD;
 
+/**
+ * @brief Free the memory allocated
+ */
 void freeMemory()
 {
     free(harley.gotham_ip);
@@ -22,13 +25,20 @@ void freeMemory()
     free(harley.folder);
     free(harley.worker_type);
 }
-
+/**
+ * @brief Closes the file descriptors if they are open
+ */
 void closeFds()
 {
-if (gothamSocketFD > 0) {
+    if (gothamSocketFD > 0)
+    {
         close(gothamSocketFD);
-    }}
+    }
+}
 
+/**
+ * @brief Saves the information of the Harley file into the Harley struct
+ */
 void saveHarley(char *filename)
 {
     int data_file_fd = open(filename, O_RDONLY);
@@ -48,13 +58,20 @@ void saveHarley(char *filename)
     harley.worker_type = readUntil('\n', data_file_fd);
 }
 
+/**
+ * @brief Closes the program correctly cleaning the memory and closing the file descriptors
+ */
 void closeProgramSignal()
 {
+    printToConsole("\nClosing program Harley\n");
     freeMemory();
     closeFds();
     exit(0);
 }
-
+/**
+ * @brief Checks if the number of arguments is correct
+ * @param argc The number of arguments
+ */
 void initalSetup(int argc)
 {
     if (argc < 2)
@@ -65,6 +82,9 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
+/**
+ * @brief Connects to the Gotham server
+ */
 void connectToGotham()
 {
     // Creado y conectado a Gotham
@@ -81,11 +101,12 @@ void connectToGotham()
     m.type = 0x02;
     m.dataLength = strlen(buffer);
     m.data = strdup(buffer);
-    // m.timestamp = convertToHex();
-    // Falta hacer la funcionchecksum
-    // m.checksum = 2;
+    m.timestamp = (unsigned int)time(NULL);
+    m.checksum = calculateChecksum(buffer, strlen(buffer));
     sendSocketMessage(gothamSocketFD, m);
+    free(buffer);
     free(m.data);
+    close(gothamSocketFD);
 
     // Receive response
     SocketMessage response = getSocketMessage(gothamSocketFD);
@@ -95,6 +116,12 @@ void connectToGotham()
     close(gothamSocketFD);
 }
 
+/**
+ * @brief Main function of the Harley server
+ * @param argc The number of arguments
+ * @param argv The arguments
+ * @return 0 if the program ends correctly
+ */
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
@@ -102,6 +129,6 @@ int main(int argc, char *argv[])
     saveHarley(argv[1]);
 
     connectToGotham();
-    freeMemory();
+    closeProgramSignal();
     return 0;
 }

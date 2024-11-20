@@ -17,6 +17,10 @@ extern int gothamSocketFD, distorsionSocketFD;
 Fleck fleck;
 char *command;
 
+/**
+ * @brief Saves the information of the Fleck file into the Fleck struct
+ *  @param filename The name of the file to read
+ */
 void saveFleck(char *filename)
 {
     int data_file_fd = open(filename, O_RDONLY);
@@ -38,7 +42,6 @@ void saveFleck(char *filename)
     printToConsole(buffer);
     free(buffer);
 }
-
 /**
  * @brief Free the memory allocated
  */
@@ -52,6 +55,19 @@ void freeMemory()
         free(command);
     }
 }
+/**
+ * @brief Closes the file descriptors if they are open
+ */
+
+/**
+ * @brief Close the program
+ */
+void closeProgram() {
+    freeMemory();
+    closeFds();
+    printToConsole("Closing program Fleck\n");
+    exit(0);
+}
 
 void closeFds()
 {
@@ -64,7 +80,9 @@ void closeFds()
         close(distorsionSocketFD);
     }
 }
-
+/**
+ * @brief Closes the program correctly cleaning the memory and closing the file descriptors
+ */
 void closeProgramSignal()
 {
     freeMemory();
@@ -72,6 +90,10 @@ void closeProgramSignal()
     exit(0);
 }
 
+/**
+ * @brief Inital setup of the program
+ * @param argc The number of arguments
+ */
 void initalSetup(int argc)
 {
     if (argc != 2)
@@ -82,6 +104,9 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
+/**
+ * @brief Reads the commands from the user and executes them until LOGOUT is called
+ */
 void commandInterpretter()
 {
     int bytesRead;
@@ -203,13 +228,17 @@ void commandInterpretter()
     command = NULL;
 }
 
+/**
+ * @brief Main function
+ * @param argc The number of arguments
+ * @param argv The arguments
+ * @return int The exit status
+ */
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
-
     saveFleck(argv[1]);
-
     commandInterpretter();
-    freeMemory();
+    closeProgram();
     return 0;
 }
