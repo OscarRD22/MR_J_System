@@ -216,7 +216,7 @@ int createAndListenSocket(char *IP, int port)
         exit(1);
     }
 
-    printToConsole("Socket binded\n");
+    //printToConsole("Socket binded\n");
 
     if (listen(socketFD, 10) < 0)
     {

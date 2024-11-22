@@ -21,7 +21,10 @@ Gotham gotham;
 int data_file_fd, listenFleckFD, listenEnigmaFD, listenHarleyFD = 0;
 pthread_t FleckThread, DistorsionWorkersThread;
 int terminate = FALSE;
-WorkerServer *workers;
+int numOfWorkers = 0;
+
+//
+WorkerServer *workers;// Array of workers
 
 /**
  * @brief Saves the information of the Gotham file into the Gotham struct

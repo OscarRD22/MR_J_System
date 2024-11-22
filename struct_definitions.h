@@ -46,11 +46,11 @@ typedef struct
 
 typedef struct
 {
-    int numOfWorkers;
-    int WorkerPort;
+    char *workerName;
+    char *workerType;
     char *WorkerIP;
-    char *WorkerServername;
-    char *Workers[MAX_WORKERS];
+    int WorkerPort;
+
 } WorkerServer;
 
 #endif

@@ -62,7 +62,8 @@ void freeMemory()
 /**
  * @brief Close the program
  */
-void closeProgram() {
+void closeProgram()
+{
     freeMemory();
     closeFds();
     printToConsole("Closing program Fleck\n");
@@ -138,21 +139,22 @@ void commandInterpretter()
         if (strcasecmp(command, "CONNECT") == 0)
         {
             char *buffer = NULL;
-            asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n", fleck.username);
+            asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n$ ", fleck.username);
             printToConsole(buffer);
             free(buffer);
+
             // Vienen una ip con server de Harley/Enigma
             connectToGotham(FALSE);
             free(command);
             command = NULL;
-            getSocketMessage(gothamSocketFD);
+            // getSocketMessage(gothamSocketFD);
             CONNECTED = TRUE;
         }
         else if (strcasecmp(command, "LOGOUT") == 0)
         {
             // DESCONECTAR SOCKETS Y SALIR
             printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
-            logout(); 
+            logout();
             continueReading = FALSE;
         }
         else
@@ -161,7 +163,17 @@ void commandInterpretter()
             if (token != NULL)
             {
                 if (strcasecmp(token, "DISTORT") == 0)
+
                 {
+                    char *filename = strtok(NULL, " ");
+                    if (filename == NULL)
+                    {
+                        printError("ERROR: Please input a valid command.\n");
+                        free(command);
+                        command = NULL;
+                    }
+                    char *factor = strtok(NULL, " ");
+
                     if (CONNECTED == FALSE)
                     {
                         printError("Cannot distort, you are not connected to Mr. J System\n");
@@ -170,12 +182,16 @@ void commandInterpretter()
                     }
                     else
                     {
-                        printf("ESTE ES EL TOKEN %s\n", token);
-                        printToConsole("Command ok\n");
-                        // conectToEnigma();
+                        char *b;
+                        // asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
+                        // printToConsole(b);
+                        // free(b);
+
+                        // printf("ESTE ES EL TOKEN %s\n", token);
+                        handleDistortCommand(filename, factor);
                     }
                 }
-                else if (strcasecmp(token, "CHECK") == 0)
+                else if (strcasecmp(token, "CHECK STATUS") == 0)
                 {
                     token = strtok(NULL, " ");
                     if (token != NULL && strcmp(token, "STATUS") == 0)
@@ -208,6 +224,16 @@ void commandInterpretter()
                         command = NULL;
                     }
                 }
+                else if (strcasecmp(token, "CLEAR") == 0)
+                {
+                    token = strtok(NULL, " ");
+                    if (token != NULL && strcasecmp(token, "ALL") == 0)
+                    {
+                        // clearAll();
+                        // free(command);
+                        // command = NULL;
+                    }
+                }
                 else
                 {
                     printError("Unknown command\n");
@@ -222,7 +248,7 @@ void commandInterpretter()
                 command = NULL;
             }
         }
-        printToConsole("$ ");
+        // printToConsole("$ ");
     } while (continueReading == TRUE);
     free(command);
     command = NULL;
