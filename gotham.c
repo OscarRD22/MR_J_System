@@ -130,15 +130,14 @@ void *listenToFleck()
             exit(1);
         }
 
-        printToConsole("Fleck connected\n");
-
+        printToConsole("New Fleck connected to Gotham\n");
         SocketMessage m = getSocketMessage(fleckSocketFD);
         printToConsole("Message received\n");
 
-        if (m.type == 0x01)
+        /*if (m.type == 0x01)
         {
-            printToConsole("New Fleck connected to Gotham\n");
-        }
+            printToConsole("Fleck connected\n");
+        }*/
     }
     return NULL;
 }

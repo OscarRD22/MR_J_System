@@ -142,8 +142,6 @@ void commandInterpretter()
             asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n$ ", fleck.username);
             printToConsole(buffer);
             free(buffer);
-
-            // Vienen una ip con server de Harley/Enigma
             connectToGotham(FALSE);
             free(command);
             command = NULL;
@@ -179,6 +177,7 @@ void commandInterpretter()
                         printError("Cannot distort, you are not connected to Mr. J System\n");
                         free(command);
                         command = NULL;
+                        printToConsole("$ ");
                     }
                     else
                     {

@@ -162,11 +162,11 @@ int connectToGotham(int isExit)
     }
 
     // Receive response
-    // TODO: UNCOMMENT THIS
-    // SocketMessage response = getSocketMessage(gothamSocketFD);
+    
+     SocketMessage response = getSocketMessage(gothamSocketFD);
 
     // handle response
-    /* if (isExit == FALSE)
+     if (isExit == FALSE)
      {
          if (response.type == 0x01 && strcmp(response.data, "CON_KO") == 0)
          {
@@ -193,8 +193,8 @@ int connectToGotham(int isExit)
 
      // It should never reach this point, but if it arrives, it returns -1.
      free(response.data);
-     return -1;*/
-    return 1;
+     return -1;
+    
 }
 
 /**
