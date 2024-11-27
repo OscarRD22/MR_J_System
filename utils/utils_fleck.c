@@ -279,7 +279,7 @@ void handleDistortCommand(char *filename, char *factor)
         return;
     }
 
-    printf("Assigned worker: %s\n", response.data);
+    asprintf("Assigned worker: %s\n", response.data);
     // Conectar al worker asignado
     char *workerIP = strtok(response.data, "&");
     char *workerPortStr = strtok(NULL, "&");

@@ -187,7 +187,7 @@ void commandInterpretter()
                         // printToConsole(b);
                         // free(b);
 
-                        // printf("ESTE ES EL TOKEN %s\n", token);
+                        // asprintf("ESTE ES EL TOKEN %s\n", token);
                         handleDistortCommand(filename, factor);
                     }
                 }

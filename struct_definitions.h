@@ -4,10 +4,9 @@
 #include <stdint.h>
 
 // Osar.romero - Marc.marza
-
+// ssh oscar.romero@montserrat.salle.url.edu
 #define TRUE 1
 #define FALSE 0
-#define MAX_WORKERS 20
 
 typedef struct
 {
@@ -46,6 +45,7 @@ typedef struct
 
 typedef struct
 {
+    int numOfWorkers;  
     char *workerName;
     char *workerType;
     char *WorkerIP;
