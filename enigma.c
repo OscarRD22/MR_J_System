@@ -16,6 +16,7 @@
 Harley_enigma enigma;
 int gothamSocketFD;
 
+
 /**
  * @brief Free the memory allocated
  */
