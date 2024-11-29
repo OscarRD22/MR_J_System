@@ -16,6 +16,7 @@ extern int gothamSocketFD, distorsionSocketFD;
 // This is the client
 Fleck fleck;
 char *command;
+int DISTORSION = TRUE;
 
 /**
  * @brief Saves the information of the Fleck file into the Fleck struct
@@ -55,20 +56,7 @@ void freeMemory()
         free(command);
     }
 }
-/**
- * @brief Closes the file descriptors if they are open
- */
 
-/**
- * @brief Close the program
- */
-void closeProgram()
-{
-    freeMemory();
-    closeFds();
-    printToConsole("Closing program Fleck\n");
-    exit(0);
-}
 
 void closeFds()
 {
@@ -80,6 +68,17 @@ void closeFds()
     {
         close(distorsionSocketFD);
     }
+}
+
+/**
+ * @brief Closes the file descriptors if they are open
+ */
+void closeProgram()
+{
+    freeMemory();
+    closeFds();
+    printToConsole("Closing program Fleck\n");
+    exit(0);
 }
 /**
  * @brief Closes the program correctly cleaning the memory and closing the file descriptors
@@ -181,7 +180,7 @@ void commandInterpretter()
                     }
                     else
                     {
-                        char *b;
+                        //char *b;
                         // asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
                         // printToConsole(b);
                         // free(b);
@@ -192,16 +191,17 @@ void commandInterpretter()
                 }
                 else if (strcasecmp(token, "CHECK STATUS") == 0)
                 {
-                    token = strtok(NULL, " ");
-                    if (token != NULL && strcmp(token, "STATUS") == 0)
-                    {
+
+                    if (DISTORSION == TRUE)
                         printToConsole("Command ok\n");
-                    }
+
                     else
                     {
                         printError("You have no ongoing or finished distorsions\n");
                         free(command);
                         command = NULL;
+                        //Poner esto al crear una distorsion
+                        DISTORSION = FALSE;
                     }
                 }
                 else if (strcasecmp(token, "LIST") == 0)
@@ -223,7 +223,7 @@ void commandInterpretter()
                         command = NULL;
                     }
                 }
-                else if (strcasecmp(token, "CLEAR") == 0)
+                else if (strcasecmp(token, "CLEAR ALL") == 0)
                 {
                     token = strtok(NULL, " ");
                     if (token != NULL && strcasecmp(token, "ALL") == 0)
@@ -238,6 +238,7 @@ void commandInterpretter()
                     printError("Unknown command\n");
                     free(command);
                     command = NULL;
+                    //continueReading == FALSE;
                 }
             }
             else
