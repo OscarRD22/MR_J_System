@@ -16,7 +16,8 @@ extern int gothamSocketFD, distorsionSocketFD;
 // This is the client
 Fleck fleck;
 char *command;
-int DISTORSION = TRUE;
+int DISTORSION = FALSE;
+int iSConnected = FALSE;
 
 /**
  * @brief Saves the information of the Fleck file into the Fleck struct
@@ -42,6 +43,7 @@ void saveFleck(char *filename)
     asprintf(&buffer, "%s user has been initialized\n$ ", fleck.username);
     printToConsole(buffer);
     free(buffer);
+    close(data_file_fd);
 }
 /**
  * @brief Free the memory allocated
@@ -56,7 +58,6 @@ void freeMemory()
         free(command);
     }
 }
-
 
 void closeFds()
 {
@@ -111,7 +112,7 @@ void commandInterpretter()
 {
     int bytesRead;
     command = NULL;
-    int continueReading = TRUE, CONNECTED = FALSE;
+    int continueReading = TRUE;
 
     do
     {
@@ -127,25 +128,29 @@ void commandInterpretter()
         if (bytesRead == 0)
         {
             printError("ERROR NO BYTES READ");
-            break;
         }
-        // FORMAT THE COMMAND ADDING THE \0 AND REMOVING THE \n
-        int len = strlen(command);
-        if (len > 0 && command[len - 1] == '\n')
-        {
-            command[len - 1] = '\0';
-        }
+
         if (strcasecmp(command, "CONNECT") == 0)
         {
-            char *buffer = NULL;
-            asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n$ ", fleck.username);
-            printToConsole(buffer);
-            free(buffer);
-            connectToGotham(FALSE);
-            free(command);
-            command = NULL;
-            // getSocketMessage(gothamSocketFD);
-            CONNECTED = TRUE;
+            if (iSConnected == TRUE)
+            {
+                printError("You are already connected to Mr. J System\n");
+                free(command);
+                command = NULL;
+                continue;
+            }
+            else
+            {
+                char *buffer = NULL;
+                connectToGotham(FALSE);
+                asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n$ ", fleck.username);
+                printToConsole(buffer);
+                free(buffer);
+                free(command);
+                command = NULL;
+                // getSocketMessage(gothamSocketFD);
+                iSConnected = TRUE;
+            }
         }
         else if (strcasecmp(command, "LOGOUT") == 0)
         {
@@ -155,13 +160,11 @@ void commandInterpretter()
             continueReading = FALSE;
         }
         else
-        { // COMMAND HAS MORE THAN ONE WORD
+        { //! COMMAND HAS MORE THAN ONE WORD---------------------------------------------------------------
             char *token = strtok(command, " ");
             if (token != NULL)
             {
-                if (strcasecmp(token, "DISTORT") == 0)
-
-                {
+                if (strcasecmp(token, "DISTORT") == 0){
                     char *filename = strtok(NULL, " ");
                     if (filename == NULL)
                     {
@@ -171,7 +174,7 @@ void commandInterpretter()
                     }
                     char *factor = strtok(NULL, " ");
 
-                    if (CONNECTED == FALSE)
+                    if (iSConnected == FALSE)
                     {
                         printError("Cannot distort, you are not connected to Mr. J System\n");
                         free(command);
@@ -180,28 +183,36 @@ void commandInterpretter()
                     }
                     else
                     {
-                        //char *b;
-                        // asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
-                        // printToConsole(b);
-                        // free(b);
+                        // char *b;
+                        //  asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
+                        //  printToConsole(b);
+                        //  free(b);
 
-                        // asprintf("ESTE ES EL TOKEN %s\n", token);
-                        handleDistortCommand(filename, factor);
+                        // asprintf("ESTE ES EL TOKEN %s\n", token)
+                        DISTORSION = TRUE; // EMPIEZA A DISTORSIONAR
+                        handleDistortCommand(filename, factor); //* ESTO SEGURAMENTE SEA UN THREAD
+                        DISTORSION = FALSE; // PUEDE QUE HAYA TERMINADO DE DISTORSIONAR
                     }
                 }
-                else if (strcasecmp(token, "CHECK STATUS") == 0)
+                else if (strcasecmp(token, "CHECK") == 0)
                 {
-
-                    if (DISTORSION == TRUE)
-                        printToConsole("Command ok\n");
-
-                    else
+                    token = strtok(NULL, " ");
+                    if (token == NULL)
                     {
-                        printError("You have no ongoing or finished distorsions\n");
+                        printError("ERROR: Please input a valid command.\n");
                         free(command);
                         command = NULL;
-                        //Poner esto al crear una distorsion
-                        DISTORSION = FALSE;
+                    }else if (strcasecmp(token, "STATUS") == 0) {
+                        if (DISTORSION == TRUE)
+                        {
+                            printToConsole("Command ok\n");
+                        }
+                        else
+                        {
+                            printError("You have no ongoing or finished distorsions\n");
+                            free(command);
+                            command = NULL;
+                        }
                     }
                 }
                 else if (strcasecmp(token, "LIST") == 0)
@@ -223,14 +234,17 @@ void commandInterpretter()
                         command = NULL;
                     }
                 }
-                else if (strcasecmp(token, "CLEAR ALL") == 0)
+                else if (strcasecmp(token, "CLEAR") == 0)
                 {
+
+
+
                     token = strtok(NULL, " ");
                     if (token != NULL && strcasecmp(token, "ALL") == 0)
                     {
-                        // clearAll();
-                        // free(command);
-                        // command = NULL;
+                         clearAll();
+                         free(command);
+                         command = NULL;
                     }
                 }
                 else
@@ -238,7 +252,7 @@ void commandInterpretter()
                     printError("Unknown command\n");
                     free(command);
                     command = NULL;
-                    //continueReading == FALSE;
+                    // continueReading == FALSE;
                 }
             }
             else

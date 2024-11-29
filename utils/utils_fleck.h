@@ -16,5 +16,6 @@ void listMedia();
 void listText();
 int connectToGotham(int isExit);
 void logout();
+void clearAll();
 void handleDistortCommand(char *filename, char* factor);
 

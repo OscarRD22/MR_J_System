@@ -197,6 +197,19 @@ int connectToGotham(int isExit)
     
 }
 
+
+/**
+ * @brief Clears everything in Fleck the folder
+ */
+void clearAll() {
+    printToConsole("Clearing all...\n");
+
+}
+
+
+
+
+
 /**
  * @brief If the Fleck is connected to the Enigma/Harlay server, it disconnects from it and sends a message to the Gotham server
  */

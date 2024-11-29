@@ -12,13 +12,11 @@
 void printToConsole(char *x)
 {
     write(1, x, strlen(x));
-    fflush(stdout);
 }
 
 void printError(char *x)
 {
     write(2, x, strlen(x));
-    fflush(stderr);
 }
 
 char *readUntil(char del, int fd)
