@@ -20,86 +20,54 @@
  * @param clientFD The socket file descriptor
  * @return The message
  */
-SocketMessage getSocketMessage(int clientFD)
-{
+SocketMessage getSocketMessage(int clientFD) {
     SocketMessage message;
     char buffer[256];
     ssize_t numBytes;
 
     message.data = NULL;
 
-    // Read the type (1 byte)
-    numBytes = read(clientFD, &message.type, 1);
-    if (numBytes != 1)
-    {
-        printError("Error reading the message type\n");
+    
+    numBytes = read(clientFD, buffer, 256);
+    if (numBytes != 256) {
+        printError("Error: message size is not 256 bytes\n");
         exit(1);
     }
 
-    // Read the data length (2 bytes, little-endian)
-    uint16_t dataLength;
-    numBytes = read(clientFD, &dataLength, sizeof(uint16_t));
-    if (numBytes != sizeof(uint16_t))
-    {
-        printError("Error reading the data length\n");
-        exit(1);
-    }
-    message.dataLength = dataLength;
+    
+    message.type = buffer[0];
+    message.dataLength = buffer[1] | (buffer[2] << 8);
 
-    // Read the data
-
-    if (dataLength > 0)
-    {
-        message.data = malloc(dataLength + 1); // +1 para '\0' si es texto
-        if (!message.data)
-        {
-            printError("Error allocating memory for data\n");
+    if (message.dataLength > 0) {
+        message.data = malloc(message.dataLength + 1); // +1 para '\0'
+        if (!message.data) {
+            printError("Error allocating memory for message data\n");
             exit(1);
         }
-        numBytes = read(clientFD, message.data, dataLength);
-        if (numBytes != dataLength)
-        {
-            printError("Error reading the message data\n");
-            free(message.data);
-            exit(1);
-        }
-        message.data[dataLength] = '\0'; // Asegurar terminación si es texto
+        memcpy(message.data, &buffer[3], message.dataLength);
+        message.data[message.dataLength] = '\0';
     }
 
-    // Read the checksum (2 bytes, little-endian)
-    uint16_t checksum;
-    numBytes = read(clientFD, &checksum, sizeof(uint16_t));
-    if (numBytes != sizeof(uint16_t))
-    {
-        printError("Error reading the checksum\n");
+    message.checksum = buffer[250] | (buffer[251] << 8);
+    message.timestamp = buffer[252] | (buffer[253] << 8) | 
+                        (buffer[254] << 16) | (buffer[255] << 24);
+
+    // Check checksum
+    unsigned short calculatedChecksum = 0;
+    for (size_t i = 0; i < 250; i++) {
+        calculatedChecksum += (unsigned char)buffer[i];
+    }
+    calculatedChecksum %= 65536;
+
+    if (calculatedChecksum != message.checksum) {
+        printError("Error: checksum mismatch\n");
         free(message.data);
         exit(1);
     }
-    message.checksum = checksum;
-
-    // Read the timestamp (4 bytes, little-endian)
-    uint32_t timestamp;
-    numBytes = read(clientFD, &timestamp, sizeof(uint32_t));
-    if (numBytes != sizeof(uint32_t))
-    {
-        printError("Error reading the timestamp\n");
-        free(message.data);
-        exit(1);
-    }
-    message.timestamp = timestamp;
-
-// Debugging logs (optional)
-   snprintf(buffer, sizeof(buffer), "Type: 0x%02x\nData length: %u\nChecksum: 0x%04x\nTimestamp: %u\n",
-            message.type, message.dataLength, message.checksum, message.timestamp);
-   printToConsole(buffer);
-
-   if (message.data) {
-       snprintf(buffer, sizeof(buffer), "Data: %s\n", message.data);
-       printToConsole(buffer);
-   }
 
     return message;
 }
+
 
 /**
  * @brief Creates a socket and connects it to a server
@@ -232,55 +200,46 @@ int createAndListenSocket(char *IP, int port)
  * @param socketFD The socket file descriptor
  * @param message The message to send
  */
-void sendSocketMessage(int socketFD, SocketMessage message)
-{
-    char *buffer = malloc(sizeof(char) * 256);
-    if (!buffer)
-    {
-        perror("Failed to allocate memory for buffer");
-        exit(1);
-    }
+void sendSocketMessage(int socketFD, SocketMessage message) {
+    char buffer[256] = {0}; // Inicializo todo a 0
+
     // Set type
     buffer[0] = message.type;
+
     // Set dataLength
     buffer[1] = (message.dataLength & 0xFF);
     buffer[2] = ((message.dataLength >> 8) & 0xFF);
 
     // Set data
-    size_t i;
-    for (i = 0; i < message.dataLength && i < 256 - 9; i++)
-    {
-        buffer[3 + i] = message.data[i];
-    }
+    size_t dataSize = (message.dataLength > 250) ? 250 : message.dataLength;
+    memcpy(&buffer[3], message.data, dataSize);
 
-    // Fill remaining buffer with padding '@'
-    for (size_t j = 3 + i; j < 256 - 6; j++)
-    { // Hasta antes del checksum y timestamp
-        buffer[j] = '@';
-    }
+    // Fill remaining space with padding '@'
+    memset(&buffer[3 + dataSize], '@', 250 - dataSize);
 
     // Calculate and set checksum
-    unsigned short checksum = 0;
-    for (size_t k = 0; k < 250; k++)
-    { // Excluyendo el espacio del checksum y timestamp
-        checksum += (unsigned char)buffer[k];
-    }
-    checksum %= 65536;
-    buffer[250] = (checksum & 0xFF); // Byte menos significativo
+    unsigned short checksum = calculateChecksum(buffer, 250);
+    buffer[250] = (checksum & 0xFF);
     buffer[251] = ((checksum >> 8) & 0xFF);
 
     // Set timestamp
-    unsigned int timestamp = (unsigned int)time(NULL); // Epoch time
-    buffer[252] = (timestamp & 0xFF);                  // Byte 1
-    buffer[253] = ((timestamp >> 8) & 0xFF);           // Byte 2
-    buffer[254] = ((timestamp >> 16) & 0xFF);          // Byte 3
-    buffer[255] = ((timestamp >> 24) & 0xFF);          // Byte 4
+    unsigned int timestamp = (unsigned int)time(NULL);
+    buffer[252] = (timestamp & 0xFF);
+    buffer[253] = ((timestamp >> 8) & 0xFF);
+    buffer[254] = ((timestamp >> 16) & 0xFF);
+    buffer[255] = ((timestamp >> 24) & 0xFF);
 
-    // Send the buffer through the socket
-    if (write(socketFD, buffer, 256) < 0)
-    {
-        perror("Failed to send data through socket");
+    // Send buffer
+    if (write(socketFD, buffer, 256) < 0) {
+        perror("Error sending data through socket");
     }
-
-    free(buffer);
 }
+
+unsigned short calculateChecksum(char *buffer, size_t length) {
+    unsigned short checksum = 0;
+    for (size_t i = 0; i < length; i++) {
+        checksum += (unsigned char)buffer[i];
+    }
+    return checksum % 65536;
+}
+

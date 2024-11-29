@@ -82,11 +82,5 @@ void printArray(char *array)
     printToConsole("Finished printing array\n");
 }
 
-unsigned short calculateChecksum(char *data, size_t length) {
-    unsigned int sum = 0;
-    for (size_t i = 0; i < length; ++i) {
-        sum += (unsigned char)data[i];
-    }
-    return (unsigned short)(sum % 65536);
-}
+
 

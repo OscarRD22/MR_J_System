@@ -12,6 +12,7 @@ int gothamSocketFD, distorsionSocketFD;
 int isDistorsionConnected = FALSE;
 #define MAX_FILES 100
 
+
 void listMedia()
 {
     DIR *dir;
@@ -201,14 +202,12 @@ int connectToGotham(int isExit)
 /**
  * @brief Clears everything in Fleck the folder
  */
+
+
 void clearAll() {
     printToConsole("Clearing all...\n");
 
 }
-
-
-
-
 
 /**
  * @brief If the Fleck is connected to the Enigma/Harlay server, it disconnects from it and sends a message to the Gotham server
@@ -239,6 +238,11 @@ void logout()
     // pthread_mutex_unlock(&isConnectedMu);
 }
 
+/**
+ * @brief Handles the DISTORT command
+ * @param filename The name of the file to distort
+ * @param factor The factor to distort the file
+ */
 void handleDistortCommand(char *filename, char *factor)
 {
 
