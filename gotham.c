@@ -129,14 +129,14 @@ void *listenToFleck()
     FD_ZERO(&write_set);
     FD_SET(listenFleckFD, &read_set);
     int max_fd = 10; // CAMBIAR SEGUN REQURIEMIENTOS
-
+    struct timeval timeout;
     while (terminate == FALSE)
     {
-        printToConsole("Waiting for connections...\n\n");
+        printToConsole("Waiting for connectionsSSS...\n\n");
         // VAMOS A TENER NUESTRO SELECT EL SELECT ES DESTUCTIVO
         ready_sockets = read_set;
 
-        int activity = select(max_fd + 1, &ready_sockets, &write_set, NULL, NULL);
+        int activity = select(max_fd + 1, &ready_sockets, &write_set, NULL, NULL);// NO HACEMOS POLLING AUN 
         if (activity < 0)
         {
             printError("Error in select\n");
@@ -191,12 +191,14 @@ void *listenToFleck()
                     SocketMessage m = getSocketMessage(i);
                     if (m.type == 0x10){
                         printToConsole("Fleck requested DISTORSION\n");
+                        // BUSCAR SERVER DISPOINIBLE 
+                        // ENVIAR IP Y PUERTO DEL SERVER DISPOINIBLE
 
                     }else if (m.type == 0x07){
                         printToConsole("FLECK REQUESTED DISCONNECTION\n");
 
                         // CERRAMOS EL SOCKET
-                        FD_CLEAR(i, &read_set);
+                        FD_CLR(i, &read_set);
                         close(i);
                     }else {
                         //ENVIAR 0x09

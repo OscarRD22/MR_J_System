@@ -196,8 +196,8 @@ int createAndListenSocket(char *IP, int port)
 
     int socketFD;
     struct sockaddr_in server;
-
-    if ((socketFD = socket(AF_INET, SOCK_STREAM, O_NONBLOCK)) < 0)
+    //toDo Mirar que no sea bloqueante
+    if ((socketFD = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printError("Error creating the socket\n");
         exit(1);
