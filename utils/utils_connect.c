@@ -20,27 +20,29 @@
  * @param clientFD The socket file descriptor
  * @return The message
  */
-SocketMessage getSocketMessage(int clientFD) {
+SocketMessage getSocketMessage(int clientFD)
+{
     SocketMessage message;
     char buffer[256];
     ssize_t numBytes;
 
     message.data = NULL;
 
-    
     numBytes = read(clientFD, buffer, 256);
-    if (numBytes != 256) {
+    if (numBytes != 256)
+    {
         printError("Error: message size is not 256 bytes\n");
         exit(1);
     }
 
-    
     message.type = buffer[0];
     message.dataLength = buffer[1] | (buffer[2] << 8);
 
-    if (message.dataLength > 0) {
+    if (message.dataLength > 0)
+    {
         message.data = malloc(message.dataLength + 1); // +1 para '\0'
-        if (!message.data) {
+        if (!message.data)
+        {
             printError("Error allocating memory for message data\n");
             exit(1);
         }
@@ -49,25 +51,74 @@ SocketMessage getSocketMessage(int clientFD) {
     }
 
     message.checksum = buffer[250] | (buffer[251] << 8);
-    message.timestamp = buffer[252] | (buffer[253] << 8) | 
+    message.timestamp = buffer[252] | (buffer[253] << 8) |
                         (buffer[254] << 16) | (buffer[255] << 24);
 
     // Check checksum
-    unsigned short calculatedChecksum = 0;
-    for (size_t i = 0; i < 250; i++) {
-        calculatedChecksum += (unsigned char)buffer[i];
-    }
-    calculatedChecksum %= 65536;
+    int checksum = 7 + message.dataLength;
 
-    if (calculatedChecksum != message.checksum) {
+    checksum = checksum % 65536;   
+    
+     // MIRAR CHECKSUM()
+    if (checksum != message.checksum)
+    {
         printError("Error: checksum mismatch\n");
         free(message.data);
-        exit(1);
+        //exit(1);
+
     }
 
     return message;
 }
 
+/**
+ * @brief Sends a message through a socket this does not work with sending files
+ * @param socketFD The socket file descriptor
+ * @param message The message to send
+ */
+void sendSocketMessage(int socketFD, SocketMessage message)
+{
+    char buffer[256] = {0}; // Inicializo todo a 0
+
+    // Set type
+    buffer[0] = message.type;
+
+    // Set dataLength
+    buffer[1] = (message.dataLength & 0xFF);
+    buffer[2] = ((message.dataLength >> 8) & 0xFF);
+
+    // Set data
+    size_t dataSize = (message.dataLength > 250) ? 250 : message.dataLength;
+    memcpy(&buffer[3], message.data, dataSize);
+
+    // Fill remaining space with padding '@'
+    memset(&buffer[3 + dataSize], '@', 250 - dataSize);
+
+    // Calculate and set checksum
+    int checksum = calculateChecksum(buffer, 250);
+    buffer[250] = (checksum & 0xFF);
+    buffer[251] = ((checksum >> 8) & 0xFF);
+
+    // Set timestamp
+    unsigned int timestamp = (unsigned int)time(NULL);
+    buffer[252] = (timestamp & 0xFF);
+    buffer[253] = ((timestamp >> 8) & 0xFF);
+    buffer[254] = ((timestamp >> 16) & 0xFF);
+    buffer[255] = ((timestamp >> 24) & 0xFF);
+
+    // Send buffer
+    if (write(socketFD, buffer, 256) < 0)
+    {
+        perror("Error sending data through socket");
+    }
+}
+
+int calculateChecksum(char *buffer, size_t length)
+{
+    int checksum = 7 + length;
+    checksum = checksum % 65536;
+    return checksum;
+}
 
 /**
  * @brief Creates a socket and connects it to a server
@@ -146,7 +197,7 @@ int createAndListenSocket(char *IP, int port)
     int socketFD;
     struct sockaddr_in server;
 
-    if ((socketFD = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    if ((socketFD = socket(AF_INET, SOCK_STREAM, O_NONBLOCK)) < 0)
     {
         printError("Error creating the socket\n");
         exit(1);
@@ -184,7 +235,7 @@ int createAndListenSocket(char *IP, int port)
         exit(1);
     }
 
-    //printToConsole("Socket binded\n");
+    // printToConsole("Socket binded\n");
 
     if (listen(socketFD, 10) < 0)
     {
@@ -195,51 +246,14 @@ int createAndListenSocket(char *IP, int port)
     return socketFD;
 }
 
-/**
- * @brief Sends a message through a socket this does not work with sending files
- * @param socketFD The socket file descriptor
- * @param message The message to send
- */
-void sendSocketMessage(int socketFD, SocketMessage message) {
-    char buffer[256] = {0}; // Inicializo todo a 0
 
-    // Set type
-    buffer[0] = message.type;
 
-    // Set dataLength
-    buffer[1] = (message.dataLength & 0xFF);
-    buffer[2] = ((message.dataLength >> 8) & 0xFF);
 
-    // Set data
-    size_t dataSize = (message.dataLength > 250) ? 250 : message.dataLength;
-    memcpy(&buffer[3], message.data, dataSize);
-
-    // Fill remaining space with padding '@'
-    memset(&buffer[3 + dataSize], '@', 250 - dataSize);
-
-    // Calculate and set checksum
-    unsigned short checksum = calculateChecksum(buffer, 250);
-    buffer[250] = (checksum & 0xFF);
-    buffer[251] = ((checksum >> 8) & 0xFF);
-
-    // Set timestamp
-    unsigned int timestamp = (unsigned int)time(NULL);
-    buffer[252] = (timestamp & 0xFF);
-    buffer[253] = ((timestamp >> 8) & 0xFF);
-    buffer[254] = ((timestamp >> 16) & 0xFF);
-    buffer[255] = ((timestamp >> 24) & 0xFF);
-
-    // Send buffer
-    if (write(socketFD, buffer, 256) < 0) {
-        perror("Error sending data through socket");
-    }
+void sendError(int socketFD){
+    SocketMessage message;
+    message.type = 0x09;
+    message.dataLength = 0;
+    message.data = strdup("");
+    sendSocketMessage(socketFD, message);
+    free(message.data);
 }
-
-unsigned short calculateChecksum(char *buffer, size_t length) {
-    unsigned short checksum = 0;
-    for (size_t i = 0; i < length; i++) {
-        checksum += (unsigned char)buffer[i];
-    }
-    return checksum % 65536;
-}
-

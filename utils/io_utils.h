@@ -9,4 +9,3 @@ void printError(char *x);
 char *readUntil(char del, int fd);
 void printArray(char *array);
 void validateString(char *str);
-unsigned short calculateChecksum(char *data, size_t length);

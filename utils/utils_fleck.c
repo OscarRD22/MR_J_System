@@ -12,7 +12,6 @@ int gothamSocketFD, distorsionSocketFD;
 int isDistorsionConnected = FALSE;
 #define MAX_FILES 100
 
-
 void listMedia()
 {
     DIR *dir;
@@ -148,8 +147,10 @@ int connectToGotham(int isExit)
         m.data = strdup(buffer);
         m.timestamp = (unsigned int)time(NULL);
         m.checksum = calculateChecksum(buffer, strlen(buffer));
+
         sendSocketMessage(gothamSocketFD, m);
         free(m.data);
+        free(buffer);
     }
     else if (isExit == TRUE)
     {
@@ -163,50 +164,45 @@ int connectToGotham(int isExit)
     }
 
     // Receive response
-    
-     SocketMessage response = getSocketMessage(gothamSocketFD);
+    SocketMessage response = getSocketMessage(gothamSocketFD);
 
     // handle response
-     if (isExit == FALSE)
-     {
-         if (response.type == 0x01 && strcmp(response.data, "CON_KO") == 0)
-         {
-             printError("Error connecting to Gotham NO SERVERS Harley/Enigma\n");
-         }
+    if (isExit == FALSE)
+    {
+        if (response.type != 0x01)
+        {
+            printError("Error connecting to Gotham\n");
+        }
 
-         free(response.data);
-         close(gothamSocketFD);
+        free(response.data);
 
-         return FALSE;
-     }
-     else if (isExit == TRUE)
-     {
-         if (response.type == 0x07 && strcmp(response.data, "CON_KO") == 0)
-         {
-             printError("Error disconnecting from Gotham\n");
-             logout();
-         }
-         free(response.data);
-         close(gothamSocketFD);
+        return FALSE;
+    }
+    else if (isExit == TRUE)
+    {
+        if (response.type == 0x07 && strcmp(response.data, "CON_KO") == 0)
+        {
+            printError("Error disconnecting from Gotham\n");
+            logout();
+        }
+        free(response.data);
+        close(gothamSocketFD);
 
-         return TRUE;
-     }
+        return TRUE;
+    }
 
-     // It should never reach this point, but if it arrives, it returns -1.
-     free(response.data);
-     return -1;
-    
+    // It should never reach this point, but if it arrives, it returns -1.
+    free(response.data);
+    return -1;
 }
-
 
 /**
  * @brief Clears everything in Fleck the folder
  */
 
-
-void clearAll() {
+void clearAll()
+{
     printToConsole("Clearing all...\n");
-
 }
 
 /**
@@ -275,7 +271,6 @@ void handleDistortCommand(char *filename, char *factor)
         sendSocketMessage(gothamSocketFD, m);
         free(m.data);
         free(buffer);
-  
     }
     else if (strcmp(extension, ".jpg") == 0 || strcmp(extension, ".png") == 0 ||
              strcmp(extension, ".wav") == 0)
@@ -290,7 +285,8 @@ void handleDistortCommand(char *filename, char *factor)
     // Esperando respuesta de Gotham para asignar worker a la distorsión.
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
-    if (response.type != 0x10 || strcmp(response.data, "DISTORT_KO") == 0) {
+    if (response.type != 0x10 || strcmp(response.data, "DISTORT_KO") == 0)
+    {
         printError("Gotham failed to assign a worker\n");
         close(gothamSocketFD);
         return;
@@ -301,31 +297,29 @@ void handleDistortCommand(char *filename, char *factor)
     char *workerIP = strtok(response.data, "&");
     char *workerPortStr = strtok(NULL, "&");
     int workerPort = atoi(workerPortStr);
-/*
-    //! ABRIR THREAD -----------------------------------------------------------------------
+    /*
+        //! ABRIR THREAD -----------------------------------------------------------------------
 
-    int workerSocket = createAndConnectSocket(workerIP, workerPort, FALSE);
-    if (workerSocket < 0) {
-        printError("Failed to connect to assigned worker\n");
+        int workerSocket = createAndConnectSocket(workerIP, workerPort, FALSE);
+        if (workerSocket < 0) {
+            printError("Failed to connect to assigned worker\n");
+            close(gothamSocketFD);
+            return;
+        }
+
+        //char *buffer;
+        //asprintf(&buffer, "DISTORT  FILENAME(%s) FACTOR(%d) WORKER TYPE(%s)\n", filename, factorInt, workerType);
+        //printToConsole(buffer);
+        //free(buffer);
+
+        //! F3 -----------------------------------------------------------------------
+        //sendFileToWorker(workerSocket, filename, factor);
+
+         Cerrar conexiones
+        close(workerSocket);
         close(gothamSocketFD);
-        return;
-    }
-
-    //char *buffer;
-    //asprintf(&buffer, "DISTORT  FILENAME(%s) FACTOR(%d) WORKER TYPE(%s)\n", filename, factorInt, workerType);
-    //printToConsole(buffer);
-    //free(buffer);
-
-    //! F3 -----------------------------------------------------------------------
-    //sendFileToWorker(workerSocket, filename, factor);
-
-     Cerrar conexiones
-    close(workerSocket);
-    close(gothamSocketFD);
-*/
-    
+    */
 }
-
 
 /*
 void sendFileToWorker(int workerSocket, char *filename, int factor) {
@@ -375,4 +369,3 @@ void sendFileToWorker(int workerSocket, char *filename, int factor) {
 }
 
 */
-

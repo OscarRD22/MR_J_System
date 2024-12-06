@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/select.h>
+
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
 #include "utils/utils_connect.h"
@@ -24,7 +26,7 @@ int terminate = FALSE;
 int numOfWorkers = 0;
 
 //
-WorkerServer *workers;// Array of workers
+WorkerServer *workers; // Array of workers
 
 /**
  * @brief Saves the information of the Gotham file into the Gotham struct
@@ -113,31 +115,98 @@ void *listenToFleck()
 {
     printToConsole("Listening to Fleck\n\n");
 
+    
     if ((listenFleckFD = createAndListenSocket(gotham.fleck_ip, gotham.fleck_port)) < 0)
     {
         printError("Error creating Fleck socket\n");
         exit(1);
     }
+    // INICIALIZAMOS EL SET DE SOCKETS
+    //fd_set es un conjunto de descriptores de fichero
+    fd_set read_set, ready_sockets, write_set;
+   
+    FD_ZERO(&read_set);
+    FD_ZERO(&write_set);
+    FD_SET(listenFleckFD, &read_set);
+    int max_fd = 10; // CAMBIAR SEGUN REQURIEMIENTOS
 
     while (terminate == FALSE)
     {
+        printToConsole("Waiting for connections...\n\n");
+        // VAMOS A TENER NUESTRO SELECT EL SELECT ES DESTUCTIVO
+        ready_sockets = read_set;
 
-        int fleckSocketFD = accept(listenFleckFD, (struct sockaddr *)NULL, NULL);
-
-        if (fleckSocketFD < 0)
+        int activity = select(max_fd + 1, &ready_sockets, &write_set, NULL, NULL);
+        if (activity < 0)
         {
-            printError("Error accepting Fleck\n");
+            printError("Error in select\n");
             exit(1);
         }
+        // SELECT CREADO Y FUNCIONANDO ---------------------------------------------
 
-        printToConsole("New Fleck connected to Gotham\n");
-        SocketMessage m = getSocketMessage(fleckSocketFD);
-        printToConsole("Message received\n");
-
-        /*if (m.type == 0x01)
+        for (int i = 0; i < max_fd + 1; i++)
         {
-            printToConsole("Fleck connected\n");
-        }*/
+            if (FD_ISSET(i, &ready_sockets)) // SI EL SOCKET ESTA EN EL SET (LISTA DE SOCKETS)
+            {
+                if (i == listenFleckFD) 
+                { // SOCKET DE ESCUCHA DE FLECK's
+                    int connectionHandle = accept(listenFleckFD, (struct sockaddr *)NULL, NULL); // IGUAL ES i EN VEZ DE listenFleckFD antes era listenFleckFD
+                    if (connectionHandle < 0)
+                    {
+                        printError("Error accepting Fleck\n");
+                        exit(1);
+                    }
+                    FD_SET(connectionHandle, &read_set);
+
+                    printToConsole("New Fleck connected to Gotham\n");
+                    SocketMessage m = getSocketMessage(connectionHandle);
+                    printToConsole("Message received\n");
+                    char *b;
+                    asprintf(&b, "DATA: %s", m.data);
+                    printToConsole(b);
+                    free(b);
+                    // PARSEAS DATA
+                    // MUSESTRAS NOMBRE DE FLECK
+
+
+                    if (m.type == 0x01)
+                    {
+                        
+                        printToConsole("SENDING RESPONSE TO FLECK");
+                        SocketMessage r;
+                        r.type = 0x01;
+                        r.dataLength = 0;
+                        r.data = strdup("");
+
+                        sendSocketMessage(connectionHandle, r);
+                        free(r.data);
+                    }
+                }
+                else
+                { // CLIENETES CONECTADOS
+                    // NO ES EL SOCKET DE ESCUCHA DE FLECK
+                    // ES UN SOCKET DE UN FLECK CONECTADO
+                    // TENEMOS QUE HANDLEAR LOS MENSAJES QUE RECIBIMOS
+                    printToConsole("Fleck connected\n");
+                    SocketMessage m = getSocketMessage(i);
+                    if (m.type == 0x10){
+                        printToConsole("Fleck requested DISTORSION\n");
+
+                    }else if (m.type == 0x07){
+                        printToConsole("FLECK REQUESTED DISCONNECTION\n");
+
+                        // CERRAMOS EL SOCKET
+                        FD_CLEAR(i, &read_set);
+                        close(i);
+                    }else {
+                        //ENVIAR 0x09
+                        sendError(i);
+                    }
+                    
+                    // FALTA EL FD CLEAR DE LOS SOCKETS QUE SE HAN DESCONECTADO
+                }
+            }
+        }
     }
     return NULL;
 }

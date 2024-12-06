@@ -148,7 +148,7 @@ void commandInterpretter()
                 free(buffer);
                 free(command);
                 command = NULL;
-                // getSocketMessage(gothamSocketFD);
+                 getSocketMessage(gothamSocketFD);
                 iSConnected = TRUE;
             }
         }
