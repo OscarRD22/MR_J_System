@@ -16,7 +16,6 @@
 Harley_enigma enigma;
 int gothamSocketFD;
 
-
 /**
  * @brief Free the memory allocated
  */
@@ -37,17 +36,6 @@ void closeFds()
     {
         close(gothamSocketFD);
     }
-}
-
-/**
- * @brief Closes the program correctly cleaning the memory and closing the file descriptors
- */
-void closeProgramSignal()
-{
-    printToConsole("\nClosing program Enigma\n");
-    freeMemory();
-    closeFds();
-    exit(0);
 }
 
 /**
@@ -74,6 +62,17 @@ void saveEnigma(char *filename)
 }
 
 /**
+ * @brief Closes the program correctly cleaning the memory and closing the file descriptors
+ */
+void closeProgramSignal()
+{
+    printToConsole("\nClosing program Enigma\n");
+    freeMemory();
+    closeFds();
+    exit(0);
+}
+
+/**
  * @brief Checks if the number of arguments is correct
  * @param argc The number of arguments
  */
@@ -87,38 +86,62 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
-/**
- * @brief Connects to Gotham
- */
-void connectToGotham()
+int connectToGothamWorker(const char *workerType, const char *ip, int port)
 {
-    // Creado y conectado a Gotham
-    if ((gothamSocketFD = createAndConnectSocket(enigma.gotham_ip, enigma.gotham_port, FALSE)) < 0)
+    
+
+    // Crear y conectar el socket a Gotham
+    if ((gothamSocketFD = createAndConnectSocket(ip, port, FALSE)) < 0)
     {
         printError("Error connecting to Gotham\n");
         exit(1);
     }
 
-    // CONECTADO TO GOTHAM
+    // Preparar el mensaje de solicitud de conexión
     SocketMessage m;
+    m.type = 0x02; // Tipo de mensaje para solicitar conexión
     char *buffer;
-    asprintf(&buffer, "%s&%s&%d&%s&%d&%s&%s", enigma.fleck_ip, enigma.gotham_ip, enigma.gotham_port, enigma.fleck_ip, enigma.fleck_port, enigma.folder, enigma.worker_type);
-    m.type = 0x02;
     m.dataLength = strlen(buffer);
+    asprintf(&buffer, "%s&%s&%d", workerType, ip, port);
     m.data = strdup(buffer);
-    m.timestamp = (unsigned int)time(NULL);
-    m.checksum = calculateChecksum(buffer, strlen(buffer));
+    // m.timestamp = (unsigned int)time(NULL);
+    // m.checksum = calculateChecksum(m.data, m.dataLength);
+    // Enviar el mensaje de solicitud a Gotham
     sendSocketMessage(gothamSocketFD, m);
-    free(buffer);
     free(m.data);
-    close(gothamSocketFD);
+    free(buffer);
 
-    // Receive response
+    // Recibir la respuesta de Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
-    // handle response
+    if (response.type == 0x02)
+    {
+        if (response.dataLength == 0)
+        {
+            printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n\n");
+            printToConsole("Waiting for connections...\n");
+        }
+        else if (response.dataLength == strlen("CON_KO") && strcmp(response.data, "CON_KO") == 0)
+        {
+            printError("Error: Unable to establish connection with Gotham.\n");
+            free(response.data);
+            close(gothamSocketFD);
+            return -1; // Retorna un error si la conexión falla
+        }
+    }
+    else
+    {
+        printError("Unexpected response type from Gotham.\n");
+        free(response.data);
+        close(gothamSocketFD);
+        return -1;
+    }
+
+    // Liberar memoria y cerrar el socket
     free(response.data);
     close(gothamSocketFD);
+
+    return 0; // Retorna 0 si la conexión fue exitosa
 }
 
 /**
@@ -130,10 +153,25 @@ void connectToGotham()
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
+
+    printToConsole("Reading configuration file.\n");
+
     saveEnigma(argv[1]);
-    connectToGotham();
-    // No hace falta porque ya lo hace en la funcion closeProgramSignal()
-    // freeMemory();
+
+    printToConsole("Connecting Enigma worker to the system...\n");
+
+    // Conectar Enigma a Gotham
+    if (connectToGothamWorker("Enigma", enigma.gotham_ip, enigma.gotham_port) != 0)
+    {
+        // Manejar el error de conexión
+        return 1;
+    }
+
+    while (1)
+    {
+        // Código para recibir y manejar peticiones de clientes
+    }
+
     closeProgramSignal();
     return 0;
 }

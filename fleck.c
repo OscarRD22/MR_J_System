@@ -147,6 +147,7 @@ void commandInterpretter()
                 printToConsole(buffer);
                 free(buffer);
                 free(command);
+                
                 command = NULL;
                  getSocketMessage(gothamSocketFD);
                 iSConnected = TRUE;

@@ -1,5 +1,6 @@
 #include "io_utils.h"
 #include "utils_fleck.h"
+#include "stdio.h"
 #include "utils_connect.h"
 #include <time.h>
 #include "../struct_definitions.h"
@@ -138,31 +139,30 @@ int connectToGotham(int isExit)
 
     // CONNECTED TO GOTHAM
     SocketMessage m;
+    char *buffer = NULL;
+
     if (isExit == FALSE)
     {
-        char *buffer;
         asprintf(&buffer, "%s&%s&%d", fleck.username, fleck.ip, fleck.port);
         m.type = 0x01;
         m.dataLength = strlen(buffer);
         m.data = strdup(buffer);
         m.timestamp = (unsigned int)time(NULL);
-        m.checksum = calculateChecksum(buffer, strlen(buffer));
-
+        // m.checksum = checksum será recalculado dentro de la función sendSocketMessage
         sendSocketMessage(gothamSocketFD, m);
-        free(m.data);
-        free(buffer);
     }
     else if (isExit == TRUE)
     {
-        m.type = 0x07;
-        char *buffer;
         asprintf(&buffer, "%s", fleck.username);
+        m.type = 0x07;
         m.dataLength = strlen(buffer);
         m.data = strdup(fleck.username);
+        m.timestamp = (unsigned int)time(NULL);
         sendSocketMessage(gothamSocketFD, m);
-        free(m.data);
     }
 
+    free(m.data);
+    free(buffer);
     // Receive response
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
@@ -186,6 +186,7 @@ int connectToGotham(int isExit)
             logout();
         }
         free(response.data);
+
         close(gothamSocketFD);
 
         return TRUE;

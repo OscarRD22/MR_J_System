@@ -18,8 +18,7 @@ int gothamSocketFD;
 /**
  * @brief Free the memory allocated
  */
-void freeMemory()
-{
+void freeMemory(){
     free(harley.gotham_ip);
     free(harley.fleck_ip);
     free(harley.folder);
@@ -85,36 +84,70 @@ void initalSetup(int argc)
 /**
  * @brief Connects to the Gotham server
  */
-void connectToGotham()
+int connectToGothamWorker()
 {
-    // Creado y conectado a Gotham
+    // Crear y conectar el socket a Gotham
     if ((gothamSocketFD = createAndConnectSocket(harley.gotham_ip, harley.gotham_port, FALSE)) < 0)
     {
         printError("Error connecting to Gotham\n");
-        exit(1);
+        return -1; 
     }
 
-    // CONNECTED TO GOTHAM
+    
     SocketMessage m;
-    char *buffer;
-    asprintf(&buffer, "%s&%s&%d&%s&%d&%s&%s", harley.fleck_ip, harley.gotham_ip, harley.gotham_port, harley.fleck_ip, harley.fleck_port, harley.folder, harley.worker_type);
-    m.type = 0x02;
+    char *buffer = NULL;
+
+// Crear el contenido del mensaje
+    if (asprintf(&buffer, "%s&%s&%d", "Harley", harley.gotham_ip, harley.gotham_port) < 0)
+    {
+        printError("Error allocating memory for message\n");
+        close(gothamSocketFD); // Cierra el socket antes de salir
+        return -1;
+    }
+
+    // Configurar los campos del mensaje
+    m.type = 0x02; 
     m.dataLength = strlen(buffer);
     m.data = strdup(buffer);
-    m.timestamp = (unsigned int)time(NULL);
-    m.checksum = calculateChecksum(buffer, strlen(buffer));
+    m.timestamp = (unsigned int)time(NULL); 
+    m.checksum = calculateChecksum(m.data, m.dataLength);
     sendSocketMessage(gothamSocketFD, m);
-    free(buffer);
-    free(m.data);
-    close(gothamSocketFD);
+    free(buffer); 
 
-    // Receive response
+ 
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
-    // handle response
+   
+    if (response.type == 0x02)
+    {
+        if (response.dataLength == 0)
+        {
+            printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n\n");
+            printToConsole("Waiting for connections...\n");
+        }
+        else if (response.dataLength == strlen("CON_KO") && strcmp(response.data, "CON_KO") == 0)
+        {
+            printError("Error: Unable to establish connection with Gotham.\n");
+            free(response.data);
+            close(gothamSocketFD);
+            return -1; 
+        }
+    }
+    else
+    {
+        printError("Unexpected response type from Gotham.\n");
+        free(response.data);
+        close(gothamSocketFD);
+        return -1; 
+    }
+
+    
     free(response.data);
     close(gothamSocketFD);
+
+    return 0; 
 }
+
 
 /**
  * @brief Main function of the Harley server
@@ -125,10 +158,21 @@ void connectToGotham()
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
+    printToConsole("Reading configuration file.\n");
 
     saveHarley(argv[1]);
+    printToConsole("Connecting Harley worker to the system...\n");
 
-    connectToGotham();
+    // Conectar Harley a Gotham
+    if (connectToGothamWorker() != 0){
+        // Manejar el error de conexión
+        return 1;
+    }
+
+    // Continuar con la lógica de funcionamiento del servidor
+    while (1){
+        // Código para recibir y manejar peticiones de clientes
+    }
     closeProgramSignal();
     return 0;
 }

@@ -20,105 +20,124 @@
  * @param clientFD The socket file descriptor
  * @return The message
  */
-SocketMessage getSocketMessage(int clientFD)
-{
+SocketMessage getSocketMessage(int clientFD) {
     SocketMessage message;
     char buffer[256];
-    ssize_t numBytes;
+    ssize_t totalBytesRead = 0, bytesRead;
 
     message.data = NULL;
 
-    numBytes = read(clientFD, buffer, 256);
-    if (numBytes != 256)
-    {
-        printError("Error: message size is not 256 bytes\n");
-        exit(1);
+    // Lee del socket en un bucle hasta que se reciban todos los datos necesarios.
+    while (totalBytesRead < 256) {
+        bytesRead = read(clientFD, buffer + totalBytesRead, 256 - totalBytesRead);
+        if (bytesRead < 0) { // Error en la lectura
+            printError("Error while reading from socket\n");
+            exit(1);
+        }
+        if (bytesRead == 0) { // Desconexión ordenada
+            printError("Client disconnected\n");
+            exit(1);
+        }
+        totalBytesRead += bytesRead;
     }
 
+    // Deserializa TYPE (1 byte)
     message.type = buffer[0];
+
+    // Deserializa DATA_LENGTH (2 bytes)
     message.dataLength = buffer[1] | (buffer[2] << 8);
 
-    if (message.dataLength > 0)
-    {
-        message.data = malloc(message.dataLength + 1); // +1 para '\0'
-        if (!message.data)
-        {
+    // Deserializa DATA (hasta 250 bytes, según DATA_LENGTH)
+    if (message.dataLength > 0) {
+        if (message.dataLength > 250) {
+            printError("Error: message data length exceeds buffer size\n");
+            exit(1);
+        }
+        message.data = malloc(message.dataLength + 1); // +1 por '\0'
+        if (!message.data) {
             printError("Error allocating memory for message data\n");
             exit(1);
         }
         memcpy(message.data, &buffer[3], message.dataLength);
-        message.data[message.dataLength] = '\0';
+        message.data[message.dataLength] = '\0'; // Asegura el final de la cadena
     }
 
-    message.checksum = buffer[250] | (buffer[251] << 8);
+    // Deserializa y valida CHECKSUM (2 bytes)
+    int checksum = buffer[250] | (buffer[251] << 8);
+    int calculatedChecksum = calculateChecksum(buffer, 250);
+    if (checksum != calculatedChecksum) {
+        printError("Error: checksum mismatch\n");
+        free(message.data);
+        message.data = NULL;
+        exit(1); // Opcional: puedes manejar el error de otra manera
+    }
+
+    // Deserializa TIMESTAMP (4 bytes)
     message.timestamp = buffer[252] | (buffer[253] << 8) |
                         (buffer[254] << 16) | (buffer[255] << 24);
 
-    // Check checksum
-    int checksum = 7 + message.dataLength;
-
-    checksum = checksum % 65536;   
-    
-     // MIRAR CHECKSUM()
-    if (checksum != message.checksum)
-    {
-        printError("Error: checksum mismatch\n");
-        free(message.data);
-        //exit(1);
-
-    }
-
     return message;
 }
+
+
 
 /**
  * @brief Sends a message through a socket this does not work with sending files
  * @param socketFD The socket file descriptor
  * @param message The message to send
  */
-void sendSocketMessage(int socketFD, SocketMessage message)
-{
-    char buffer[256] = {0}; // Inicializo todo a 0
+void sendSocketMessage(int socketFD, SocketMessage message) {
+    char buffer[256] = {0}; // Inicialitza el buffer amb 0
 
-    // Set type
+    // Serialitza TYPE (1 byte)
     buffer[0] = message.type;
 
-    // Set dataLength
-    buffer[1] = (message.dataLength & 0xFF);
-    buffer[2] = ((message.dataLength >> 8) & 0xFF);
+    // Serialitza DATA_LENGTH (2 bytes)
+    buffer[1] = (message.dataLength & 0xFF);         // Byte menys significatiu
+    buffer[2] = ((message.dataLength >> 8) & 0xFF);  // Byte més significatiu
 
-    // Set data
+    // Serialitza DATA (fins a 250 bytes)
     size_t dataSize = (message.dataLength > 250) ? 250 : message.dataLength;
-    memcpy(&buffer[3], message.data, dataSize);
+    if (message.data != NULL) {
+        memcpy(&buffer[3], message.data, dataSize); // Copia els bytes de DATA
+    }
+    memset(&buffer[3 + dataSize], '@', 250 - dataSize); // Omple amb '@'
 
-    // Fill remaining space with padding '@'
-    memset(&buffer[3 + dataSize], '@', 250 - dataSize);
+    // Serialitza CHECKSUM (2 bytes)
+    int checksum = calculateChecksum(buffer, 250); // Calcula només fins al byte 249
+    buffer[250] = (checksum & 0xFF);               // Byte menys significatiu
+    buffer[251] = ((checksum >> 8) & 0xFF);        // Byte més significatiu
 
-    // Calculate and set checksum
-    int checksum = calculateChecksum(buffer, 250);
-    buffer[250] = (checksum & 0xFF);
-    buffer[251] = ((checksum >> 8) & 0xFF);
-
-    // Set timestamp
+    // Serialitza TIMESTAMP (4 bytes)
     unsigned int timestamp = (unsigned int)time(NULL);
     buffer[252] = (timestamp & 0xFF);
     buffer[253] = ((timestamp >> 8) & 0xFF);
     buffer[254] = ((timestamp >> 16) & 0xFF);
     buffer[255] = ((timestamp >> 24) & 0xFF);
 
-    // Send buffer
-    if (write(socketFD, buffer, 256) < 0)
-    {
+    // Envia el buffer pel socket
+    if (write(socketFD, buffer, 256) != 256) {
         perror("Error sending data through socket");
     }
 }
 
-int calculateChecksum(char *buffer, size_t length)
-{
-    int checksum = 7 + length;
-    checksum = checksum % 65536;
-    return checksum;
+
+
+int calculateChecksum(const char *buffer, size_t length) {
+    int checksum = 0;
+
+    // Sumar els valors ASCII dels primers 250 bytes
+    for (size_t i = 0; i < length -6; i++) {
+        checksum += (unsigned char)buffer[i];
+    }
+
+    return checksum % 65536; // Redueix al rang de 16 bits
 }
+
+
+
+
+
 
 /**
  * @brief Creates a socket and connects it to a server
@@ -131,9 +150,11 @@ int createAndConnectSocket(char *IP, int port, int isVerbose)
     char *buffer;
     if (isVerbose == TRUE)
     {
+        /*
         asprintf(&buffer, "Creating and connecting socket on %s:%d\n", IP, port);
         printToConsole(buffer);
         free(buffer);
+        */
     }
 
     int socketFD;
@@ -189,14 +210,15 @@ int createAndConnectSocket(char *IP, int port, int isVerbose)
  */
 int createAndListenSocket(char *IP, int port)
 {
+    /*
     char *buffer;
     asprintf(&buffer, "Creating socket on %s:%d\n", IP, port);
     printToConsole(buffer);
     free(buffer);
-
+*/
     int socketFD;
     struct sockaddr_in server;
-    //toDo Mirar que no sea bloqueante
+    // toDo Mirar que no sea bloqueante
     if ((socketFD = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printError("Error creating the socket\n");
@@ -227,7 +249,7 @@ int createAndListenSocket(char *IP, int port)
         exit(1);
     }
 
-    printToConsole("Socket created\n");
+    //printToConsole("Socket created\n");
 
     if (bind(socketFD, (struct sockaddr *)&server, sizeof(server)) < 0)
     {
@@ -246,10 +268,8 @@ int createAndListenSocket(char *IP, int port)
     return socketFD;
 }
 
-
-
-
-void sendError(int socketFD){
+void sendError(int socketFD)
+{
     SocketMessage message;
     message.type = 0x09;
     message.dataLength = 0;

@@ -113,30 +113,28 @@ void initalSetup(int argc)
  */
 void *listenToFleck()
 {
-    printToConsole("Listening to Fleck\n\n");
+    // printToConsole("Listening to Fleck\n\n");
 
-    
     if ((listenFleckFD = createAndListenSocket(gotham.fleck_ip, gotham.fleck_port)) < 0)
     {
         printError("Error creating Fleck socket\n");
         exit(1);
     }
     // INICIALIZAMOS EL SET DE SOCKETS
-    //fd_set es un conjunto de descriptores de fichero
+    // fd_set es un conjunto de descriptores de fichero
     fd_set read_set, ready_sockets, write_set;
-   
+
     FD_ZERO(&read_set);
     FD_ZERO(&write_set);
     FD_SET(listenFleckFD, &read_set);
     int max_fd = 10; // CAMBIAR SEGUN REQURIEMIENTOS
-    struct timeval timeout;
     while (terminate == FALSE)
     {
-        printToConsole("Waiting for connectionsSSS...\n\n");
+        printToConsole("Waiting for connections... (MSG in SELECT) \n\n");
         // VAMOS A TENER NUESTRO SELECT EL SELECT ES DESTUCTIVO
         ready_sockets = read_set;
 
-        int activity = select(max_fd + 1, &ready_sockets, &write_set, NULL, NULL);// NO HACEMOS POLLING AUN 
+        int activity = select(max_fd + 1, &ready_sockets, &write_set, NULL, NULL); // NO HACEMOS POLLING AUN
         if (activity < 0)
         {
             printError("Error in select\n");
@@ -148,8 +146,8 @@ void *listenToFleck()
         {
             if (FD_ISSET(i, &ready_sockets)) // SI EL SOCKET ESTA EN EL SET (LISTA DE SOCKETS)
             {
-                if (i == listenFleckFD) 
-                { // SOCKET DE ESCUCHA DE FLECK's
+                if (i == listenFleckFD)
+                {                                                                                // SOCKET DE ESCUCHA DE FLECK's
                     int connectionHandle = accept(listenFleckFD, (struct sockaddr *)NULL, NULL); // IGUAL ES i EN VEZ DE listenFleckFD antes era listenFleckFD
                     if (connectionHandle < 0)
                     {
@@ -158,20 +156,22 @@ void *listenToFleck()
                     }
                     FD_SET(connectionHandle, &read_set);
 
-                    printToConsole("New Fleck connected to Gotham\n");
                     SocketMessage m = getSocketMessage(connectionHandle);
-                    printToConsole("Message received\n");
-                    char *b;
-                    asprintf(&b, "DATA: %s", m.data);
-                    printToConsole(b);
-                    free(b);
-                    // PARSEAS DATA
-                    // MUSESTRAS NOMBRE DE FLECK
+                    // Extraer el nombre de Fleck desde m.data
+                    char *token = strtok(m.data, "&"); // Dividir la cadena usando '&' como delimitador
+                    if (token != NULL)
+                    {
+                        printToConsole("New user connected: ");
+                        printToConsole(token);
+                        printToConsole("\n");
+                    }
 
+                    // Liberar la memoria de m.data si es necesario
+                    free(m.data);
 
                     if (m.type == 0x01)
                     {
-                        
+
                         printToConsole("SENDING RESPONSE TO FLECK");
                         SocketMessage r;
                         r.type = 0x01;
@@ -189,22 +189,26 @@ void *listenToFleck()
                     // TENEMOS QUE HANDLEAR LOS MENSAJES QUE RECIBIMOS
                     printToConsole("Fleck connected\n");
                     SocketMessage m = getSocketMessage(i);
-                    if (m.type == 0x10){
+                    if (m.type == 0x10)
+                    {
                         printToConsole("Fleck requested DISTORSION\n");
-                        // BUSCAR SERVER DISPOINIBLE 
+                        // BUSCAR SERVER DISPOINIBLE
                         // ENVIAR IP Y PUERTO DEL SERVER DISPOINIBLE
-
-                    }else if (m.type == 0x07){
+                    }
+                    else if (m.type == 0x07)
+                    {
                         printToConsole("FLECK REQUESTED DISCONNECTION\n");
 
                         // CERRAMOS EL SOCKET
                         FD_CLR(i, &read_set);
                         close(i);
-                    }else {
-                        //ENVIAR 0x09
+                    }
+                    else
+                    {
+                        // ENVIAR 0x09
                         sendError(i);
                     }
-                    
+
                     // FALTA EL FD CLEAR DE LOS SOCKETS QUE SE HAN DESCONECTADO
                 }
             }
@@ -218,36 +222,102 @@ void *listenToFleck()
  */
 void *listenToDistorsionWorkers()
 {
-    printToConsole("Listening to WORKERS\n\n");
+    // printToConsole("Listening to WORKERS\n\n");
 
+    // Crear socket de escucha
     if ((listenEnigmaFD = createAndListenSocket(gotham.harley_enigma_ip, gotham.harley_enigma_port)) < 0)
     {
         printError("Error creating workers socket\n");
         exit(1);
     }
 
+    // Inicialización del conjunto de sockets
+    fd_set read_set, ready_sockets;
+    FD_ZERO(&read_set);                // Limpia el conjunto
+    FD_SET(listenEnigmaFD, &read_set); // Agrega el socket de escucha al conjunto
+    int max_fd = listenEnigmaFD;       // Inicializar el valor máximo de FD
+
     while (terminate == FALSE)
     {
+        // Copiamos el conjunto de sockets porque `select` lo modifica
+        ready_sockets = read_set;
 
-        // ESTO ES BLOCKING
-        int workerSocketFD = accept(listenEnigmaFD, (struct sockaddr *)NULL, NULL);
-
-        if (workerSocketFD < 0)
+        // Llamada a `select` para monitorear actividad
+        int activity = select(max_fd + 1, &ready_sockets, NULL, NULL, NULL);
+        if (activity < 0)
         {
-            printError("Error accepting worker\n");
+            printError("Error in W select\n");
             exit(1);
         }
 
-        printToConsole("Worker connected\n");
+        // Iteramos por todos los posibles sockets activos
+        for (int i = 0; i <= max_fd; i++)
+        {
+            if (FD_ISSET(i, &ready_sockets)) // Si el socket está activo
+            {
+                if (i == listenEnigmaFD) // Nueva conexión de un trabajador
+                {
+                    int workerSocketFD = accept(listenEnigmaFD, (struct sockaddr *)NULL, NULL);
+                    if (workerSocketFD < 0)
+                    {
+                        printError("Error accepting worker\n");
+                        continue;
+                    }
 
-        // ESTO ES BLOCKING
-        SocketMessage m = getSocketMessage(workerSocketFD);
+                    // Recibir el mensaje del trabajador para extraer su tipo
+                    SocketMessage m = getSocketMessage(workerSocketFD);
 
-        /* if (m.type == 0x02)
-         {
-             printToConsole("New worker connected to Gotham\n");
-         }
-         */
+                    char *workerType = strtok(m.data, "&"); // Extraer el tipo de trabajador
+
+                    if (workerType != NULL)
+                    {
+                        // Añadir el trabajador a la lista - Falta hacer
+
+                        // Responder al cliente con una confirmación
+                        SocketMessage response;
+                        response.type = 0x02; // Tipo de respuesta
+                        response.dataLength = 0;
+                        response.data = strdup("");
+                        sendSocketMessage(workerSocketFD, response);
+                        free(response.data);
+                        char message[256];
+                        snprintf(message, sizeof(message), "New %s worker connected - ready to distort!\n", workerType);
+                        printToConsole(message);
+                    }
+                    else
+                    {
+                        printError("Invalid message format from worker\n");
+                    }
+
+                    // Agregamos el nuevo socket al conjunto de lectura
+                    FD_SET(workerSocketFD, &read_set);
+                    if (workerSocketFD > max_fd)
+                        max_fd = workerSocketFD; // Actualizamos el FD máximo
+                }
+                else // Socket de un trabajador existente
+                {
+                    printToConsole("Worker connected!!!!!\n");
+                    // Recibir mensaje del trabajador
+                    SocketMessage m = getSocketMessage(i);
+                    printToConsole("Worker NO connected!!!!!\n");
+                    if (m.type == 0x02) // Ejemplo de tipo de mensaje
+                    {
+                        printToConsole("Worker requested task assignment\n");
+                        // Aquí puedes manejar la lógica específica para el mensaje
+                    }
+                    else if (m.type == 0x07) // Ejemplo: desconexión
+                    {
+                        m.dataLength = 0;
+                        m.data = strdup(""); // Aqui va el worker type si es necesario
+                        printToConsole("Worker disconnected\n");
+
+                        // Limpiar y cerrar el socket
+                        FD_CLR(i, &read_set);
+                        close(i);
+                    }
+                }
+            }
+        }
     }
 
     return NULL;
@@ -265,10 +335,10 @@ int main(int argc, char *argv[])
 
     saveGotham(argv[1]);
     printToConsole("Gotham server initialized\n\n");
-    printToConsole("Waiting for connections...\n\n");
+    // printToConsole("Waiting for connections...\n\n");
 
     // Retorna 0 si tiene éxito o un código de error si falla
-    if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, "Thread Fleck creado\n") != 0)
+    if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, NULL) != 0)
     {
         printError("Error creating Fleck thread\n");
         exit(1);

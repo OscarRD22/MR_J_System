@@ -10,5 +10,5 @@ SocketMessage getSocketMessage(int clientFD);
 int createAndConnectSocket(char *IP, int port, int isVerbose);
 int createAndListenSocket(char *IP, int port);
 void sendSocketMessage(int socketFD, SocketMessage message);
-int calculateChecksum(char *buffer, size_t length);
+int calculateChecksum(const char *buffer, size_t length);
 void sendError(int socketFD);
