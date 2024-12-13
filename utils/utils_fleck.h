@@ -17,5 +17,7 @@ void listText();
 int connectToGotham(int isExit);
 void logout();
 void clearAll();
-void handleDistortCommand(char *filename, char* factor);
-
+void handleDistortCommand(const char *filename, const char *factor);
+void sendFileToWorker(int workerSocketFD, const char *filename);
+void handleResumeCommand(const char *filename);
+void checkStatus();

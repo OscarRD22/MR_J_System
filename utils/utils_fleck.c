@@ -12,6 +12,8 @@ extern Fleck fleck;
 int gothamSocketFD, distorsionSocketFD;
 int isDistorsionConnected = FALSE;
 #define MAX_FILES 100
+int DISTORSION = FALSE;         // Indica si hay un proceso de distorsión en curso
+int finishedDistortion = FALSE; // Indica si la última distorsión terminó con éxito
 
 void listMedia()
 {
@@ -122,12 +124,6 @@ void listText()
         printToConsole("No text files found\n");
     }
 }
-
-/**
- * @brief Connects to the Gotham server with stable connection.
- * @param isExit Indicates whether the Fleck is exiting (send disconnect to Gotham) or not (send connection request).
- * @return int Returns 0 on success, -1 on failure.
- */
 /**
  * @brief Connects to the Gotham server with stable connection.
  * @param isExit Indicates whether the Fleck is exiting (send disconnect to Gotham) or not (send connection request).
@@ -219,19 +215,8 @@ int connectToGotham(int isExit)
 
     // Liberar recursos y cerrar el socket
     free(response.data);
-    close(gothamSocketFD);
+    
     return 0;
-}
-
-
-
-/**
- * @brief Clears everything in Fleck the folder
- */
-
-void clearAll()
-{
-    printToConsole("Clearing all...\n");
 }
 
 /**
@@ -264,137 +249,236 @@ void logout()
 }
 
 /**
- * @brief Handles the DISTORT command
- * @param filename The name of the file to distort
- * @param factor The factor to distort the file
+ * @brief Envía un archivo al Worker en tramas de 256 bytes.
+ * @param workerSocketFD Socket del Worker.
+ * @param filename Nombre del archivo a enviar.
  */
-void handleDistortCommand(char *filename, char *factor)
+void sendFileToWorker(int workerSocketFD, const char *filename)
 {
-
-    int factorInt = atoi(factor);
-
-    if (!filename || factorInt <= 0)
+    FILE *file = fopen(filename, "rb");
+    if (!file)
     {
-        printError("Invalid DISTORT command: missing file name or factor\n");
+        printError("Failed to open file for reading.\n");
         return;
     }
 
+    char buffer[256];
+    size_t bytesRead;
+
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    {
+        SocketMessage fileMessage;
+        fileMessage.type = 0x05;
+        fileMessage.dataLength = bytesRead;
+        fileMessage.data = malloc(bytesRead);
+        memcpy(fileMessage.data, buffer, bytesRead);
+        fileMessage.timestamp = (unsigned int)time(NULL);
+        fileMessage.checksum = calculateChecksum(fileMessage.data, fileMessage.dataLength);
+
+        sendSocketMessage(workerSocketFD, fileMessage);
+
+        free(fileMessage.data);
+    }
+
+    fclose(file);
+}
+
+/**
+ * @brief Maneja el comando RESUME para continuar la distorsión tras un fallo.
+ * @param filename Nombre del archivo a distorsionar.
+
+void handleResumeCommand(const char *filename)
+{
     char *extension = strrchr(filename, '.');
-    if (!extension)
+    if (!extension || strlen(extension) < 2)
     {
-        printError("Invalid file: missing extension\n");
+        printError("Invalid file type. Please provide a valid file.\n");
         return;
     }
 
-    char *workerType = NULL;
-    if (strcmp(extension, ".txt") == 0)
-    {
-        // workerType = "Text";
-        SocketMessage m;
+    // Construir la trama para Gotham
+    char *dataBuffer = NULL;
+    asprintf(&dataBuffer, "%s&%s", extension + 1, filename);
 
-        char *buffer;
-        asprintf(&buffer, "%s&%s", workerType, filename);
-        m.type = 0x10;
-        m.dataLength = strlen(buffer);
-        m.data = strdup(buffer);
-        sendSocketMessage(gothamSocketFD, m);
-        free(m.data);
-        free(buffer);
-    }
-    else if (strcmp(extension, ".jpg") == 0 || strcmp(extension, ".png") == 0 ||
-             strcmp(extension, ".wav") == 0)
+    SocketMessage resumeRequest;
+    resumeRequest.type = 0x11;
+    resumeRequest.dataLength = strlen(dataBuffer);
+    resumeRequest.data = strdup(dataBuffer);
+    resumeRequest.timestamp = (unsigned int)time(NULL);
+    resumeRequest.checksum = calculateChecksum(resumeRequest.data, resumeRequest.dataLength);
+
+    free(dataBuffer);
+
+    // Enviar solicitud de reanudación a Gotham
+    sendSocketMessage(gothamSocketFD, resumeRequest);
+    free(resumeRequest.data);
+
+    // Recibir respuesta de Gotham
+    SocketMessage response = getSocketMessage(gothamSocketFD);
+
+    if (response.type == 0x11)
     {
-        workerType = "Media";
+        if (strcmp(response.data, "DISTORT_KO") == 0 || strcmp(response.data, "MEDIA_KO") == 0)
+        {
+            printError("Gotham could not assign a new Worker. Distortion failed.\n");
+        }
+        else
+        {
+            char *workerIP = strtok(response.data, "&");
+            char *workerPortStr = strtok(NULL, "&");
+
+            if (workerIP && workerPortStr)
+            {
+                int workerPort = atoi(workerPortStr);
+                printToConsole("Resuming distortion with a new Worker...\n");
+
+                int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
+                if (workerSocketFD < 0)
+                {
+                    printError("Failed to connect to new Worker.\n");
+                }
+                else
+                {
+                    sendFileToWorker(workerSocketFD, filename);
+                    close(workerSocketFD);
+                }
+            }
+            else
+            {
+                printError("Invalid response format from Gotham.\n");
+            }
+        }
     }
     else
     {
-        printError("Unsupported file extension\n");
+        printError("Invalid response type from Gotham.\n");
+    }
+
+    free(response.data);
+}
+ */
+
+
+/**
+ * @brief Maneja el comando DISTORT enviando la solicitud a Gotham y conectándose al Worker.
+ * @param filename Nombre del archivo a distorsionar.
+ * @param factor Factor de distorsión.
+ */
+void handleDistortCommand(const char *filename, const char *factor)
+{
+    DISTORSION = TRUE; // Iniciar proceso de distorsión
+
+    char *extension = strrchr(filename, '.');
+    if (!extension || strlen(extension) < 2)
+    {
+        printError("Invalid file type. Please provide a valid file.\n");
         return;
     }
-    // Esperando respuesta de Gotham para asignar worker a la distorsión.
+
+    // Construir la trama para Gotham
+    char *dataBuffer = NULL;
+    asprintf(&dataBuffer, "%s&%s", extension + 1, filename);
+
+    SocketMessage distortRequest;
+    distortRequest.type = 0x10;
+    distortRequest.dataLength = strlen(dataBuffer);
+    distortRequest.data = strdup(dataBuffer);
+    distortRequest.timestamp = (unsigned int)time(NULL);
+    distortRequest.checksum = calculateChecksum(distortRequest.data, distortRequest.dataLength);
+
+    // Enviar solicitud a Gotham
+    sendSocketMessage(gothamSocketFD, distortRequest);
+    free(dataBuffer);
+    free(distortRequest.data);
+    
+    
+    printToConsole("ESTOY AQUIIII..\n");
+
+    // Recibir respuesta de Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
-    if (response.type != 0x10 || strcmp(response.data, "DISTORT_KO") == 0)
+    printToConsole("Gotham me ha respondido\n");
+
+    if (response.type == 0x10)
     {
-        printError("Gotham failed to assign a worker\n");
-        close(gothamSocketFD);
-        return;
-    }
-
-    asprintf("Assigned worker: %s\n", response.data);
-    // Conectar al worker asignado
-    char *workerIP = strtok(response.data, "&");
-    char *workerPortStr = strtok(NULL, "&");
-    int workerPort = atoi(workerPortStr);
-    /*
-        //! ABRIR THREAD -----------------------------------------------------------------------
-
-        int workerSocket = createAndConnectSocket(workerIP, workerPort, FALSE);
-        if (workerSocket < 0) {
-            printError("Failed to connect to assigned worker\n");
-            close(gothamSocketFD);
-            return;
+        if (strcmp(response.data, "DISTORT_KO") == 0)
+        {
+            printError("Gotham could not process the distortion request. No workers available.\n");
+            DISTORSION = FALSE;
         }
+        else
+        {
+            char *workerIP = strtok(response.data, "&");
+            char *workerPortStr = strtok(NULL, "&");
+            
+            
 
-        //char *buffer;
-        //asprintf(&buffer, "DISTORT  FILENAME(%s) FACTOR(%d) WORKER TYPE(%s)\n", filename, factorInt, workerType);
-        //printToConsole(buffer);
-        //free(buffer);
+            if (workerIP && workerPortStr)
+            {
+                int workerPort = atoi(workerPortStr);
+                printToConsole("Connecting to Worker...\n");
 
-        //! F3 -----------------------------------------------------------------------
-        //sendFileToWorker(workerSocket, filename, factor);
+                int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
+                if (workerSocketFD < 0)
+                {
+                    printError("Failed to connect to Worker.\n");
+                    DISTORSION = FALSE;
+                }
+                else
+                {
+                    // Enviar solicitud al Worker
+                    char *workerRequestData = NULL;
+                    asprintf(&workerRequestData, "%s&%s&%s", fleck.username, filename, factor);
 
-         Cerrar conexiones
-        close(workerSocket);
-        close(gothamSocketFD);
-    */
+                    SocketMessage workerRequest;
+                    workerRequest.type = 0x03;
+                    workerRequest.dataLength = strlen(workerRequestData);
+                    workerRequest.data = strdup(workerRequestData);
+                    workerRequest.timestamp = (unsigned int)time(NULL);
+                    workerRequest.checksum = calculateChecksum(workerRequest.data, workerRequest.dataLength);
+
+                    sendSocketMessage(workerSocketFD, workerRequest);
+                    free(workerRequest.data);
+                    free(workerRequestData);
+
+                    // Recibir confirmación del Worker
+                    SocketMessage workerResponse = getSocketMessage(workerSocketFD);
+
+                    if (workerResponse.type == 0x03 && workerResponse.dataLength == 0)
+                    {
+                        printToConsole("Worker ready to distort the file.\n");
+
+                        // Enviar el archivo al Worker
+                        sendFileToWorker(workerSocketFD, filename);
+                        DISTORSION = FALSE;
+                        finishedDistortion = TRUE;
+                    }
+                    else
+                    {
+                        printError("Worker failed to start distortion.\n");
+                        DISTORSION = FALSE;
+                    }
+
+                    free(workerResponse.data);
+                    close(workerSocketFD);
+                }
+            }
+            else
+            {
+                printError("Invalid response format from Gotham.\n");
+                DISTORSION = FALSE;
+            }
+        }
+    }
+    else
+    {
+        printError("Invalid response type from Gotham.\n");
+        DISTORSION = FALSE;
+    }
+
+    free(response.data);
 }
 
-/*
-void sendFileToWorker(int workerSocket, char *filename, int factor) {
-    // Leer el archivo en memoria
-    int fileFD = open(filename, O_RDONLY);
-    if (fileFD < 0) {
-        printError("Error opening file for reading\n");
-        return;
-    }
 
-    // Obtener el tamaño del archivo
-    struct stat fileStat;
-    fstat(fileFD, &fileStat);
-    size_t fileSize = fileStat.st_size;
 
-    // Calcular el checksum del archivo original
-    char fileChecksum[33];
-    calculateMD5Checksum(fileFD, fileChecksum); // Implementar esta función
 
-    // Crear la trama inicial
-    SocketMessage fileInfo;
-    char *buffer;
-    asprintf(&buffer, "%s&%lu&%s&%d", filename, fileSize, fileChecksum, factor);
-    fileInfo.type = 0x03;
-    fileInfo.dataLength = strlen(buffer);
-    fileInfo.data = buffer;
-
-    sendSocketMessage(workerSocket, fileInfo);
-    free(buffer);
-
-    // Enviar el archivo en tramas de 256 bytes
-    char dataBuffer[256];
-    ssize_t bytesRead;
-    while ((bytesRead = read(fileFD, dataBuffer, 256)) > 0) {
-        write(workerSocket, dataBuffer, bytesRead);
-    }
-    close(fileFD);
-
-    // Recibir el archivo distorsionado
-    SocketMessage response = getSocketMessage(workerSocket);
-    if (response.type != 0x06 || strcmp(response.data, "CHECK_KO") == 0) {
-        printError("Failed to process file distortion\n");
-        return;
-    }
-
-    printToConsole("File distortion successful: %s\n", response.data);
-}
-
-*/

@@ -86,7 +86,7 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
-int connectToEnigmaWorker(const char *WType)
+int connectToEnigmaWorker()
 {
 
     // Crear y conectar el socket a Gotham
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
     printToConsole("Connecting Enigma worker to the system...\n");
 
     // Conectar Enigma a Gotham
-    if (connectToEnigmaWorker("Enigma") != 0)
+    if (connectToEnigmaWorker() != 0)
     {
         printError("Failed to connect to Gotham. Exiting...\n");
         closeProgramSignal(0);

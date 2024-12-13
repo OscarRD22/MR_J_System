@@ -21,7 +21,7 @@
 // Estructura para un worker
 typedef struct
 {
-    char workerType[10]; // Tipo: "Harley" o "Enigma"
+    char workerType[10]; // Tipo: "Media" o "Text"
     char ip[16];         // Dirección IP del worker
     int port;            // Puerto del worker
     int available;       // 1 = Disponible, 0 = Ocupado
@@ -63,7 +63,6 @@ void saveGotham(char *filename)
     free(port);
     printToConsole("\n\nReading configuration file\n\n");
 }
-
 /**
  * @brief Closes the file descriptors if they are open
  */
@@ -89,35 +88,6 @@ void freeMemory()
 {
     free(gotham.fleck_ip);
     free(gotham.harley_enigma_ip);
-}
-/**
- * @brief Closes the program correctly cleaning the memory and closing the file descriptors
- */
-void closeProgramSignal(int sig) {
-    printToConsole("Gotham shutting down...\n");
-
-    for (int i = 0; i < workerCount; i++) {
-        releaseWorker(workers[i].ip, workers[i].port);
-    }
-
-    closeFds();
-    freeMemory();
-    exit(0);
-}
-
-
-/**
- * @brief Checks if the number of arguments is correct
- * @param argc The number of arguments
- */
-void initalSetup(int argc)
-{
-    if (argc < 2)
-    {
-        printError("ERROR: Not enough arguments provided\n");
-        exit(1);
-    }
-    signal(SIGINT, closeProgramSignal);
 }
 
 /**
@@ -232,17 +202,18 @@ void *listenToFleck()
 */
 
 /**
- * @brief Busca un worker disponible en la lista global.
+ * @brief Busca un Worker disponible por tipo.
  *
- * @return Worker* Un puntero al worker disponible, o NULL si no hay disponibles.
+ * @param workerType Tipo de Worker que se busca.
+ * @return Worker* Un puntero al Worker disponible, o NULL si no hay disponibles.
  */
-Worker *getAvailableWorker()
+Worker *getAvailableWorkerByType(const char *workerType)
 {
     pthread_mutex_lock(&workersMutex);
 
     for (int i = 0; i < workerCount; i++)
     {
-        if (workers[i].available == 1) // Si el worker está disponible
+        if (workers[i].available == 1 && strcmp(workers[i].workerType, workerType) == 0)
         {
             workers[i].available = 0; // Marcar como ocupado
             pthread_mutex_unlock(&workersMutex);
@@ -251,7 +222,7 @@ Worker *getAvailableWorker()
     }
 
     pthread_mutex_unlock(&workersMutex);
-    return NULL; // No hay workers disponibles
+    return NULL; // No hay Workers disponibles
 }
 
 /**
@@ -276,39 +247,84 @@ void releaseWorker(const char *ip, int port)
     pthread_mutex_unlock(&workersMutex);
 }
 
+/**
+ * @brief Closes the program correctly cleaning the memory and closing the file descriptors
+ */
+void closeProgramSignal(int sig)
+{
+    printToConsole("Gotham shutting down...\n");
+
+    for (int i = 0; i < workerCount; i++)
+    {
+        releaseWorker(workers[i].ip, workers[i].port);
+    }
+
+    closeFds();
+    freeMemory();
+    exit(0);
+}
+
+/**
+ * @brief Checks if the number of arguments is correct
+ * @param argc The number of arguments
+ */
+void initalSetup(int argc)
+{
+    if (argc < 2)
+    {
+        printError("ERROR: Not enough arguments provided\n");
+        exit(1);
+    }
+    signal(SIGINT, closeProgramSignal);
+}
 //---------------------------------- U S E R ------------------------------------
 /**
- * @brief Redirige una petición de usuario Fleck al worker Harley.
+ * @brief Maneja una petición de distorsión.
  *
- * @param clientSocketFD Socket del cliente (Fleck).
- * @param userName Nombre del usuario (ej. Arthur).
- * @param ip Dirección IP del usuario.
- * @param port Puerto del usuario.
+ * @param receivedMessage El mensaje recibido del Fleck.
+ * @param clientSocketFD El socket del cliente Fleck.
  */
-void redirectToWorker(int clientSocketFD, char *userName, char *ip, int port)
+void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
 {
-    // Buscar un worker Harley disponible
-    int workerFD = getAvailableWorker("Harley");
-    if (workerFD < 0)
+    char *mediaType = strtok(receivedMessage.data, "&");
+    char *fileName = strtok(NULL, "&");
+
+    if (mediaType == NULL || fileName == NULL)
     {
-        printError("No hay workers Harley disponibles para atender la petición");
+        printError("Formato de petición de distorsión incorrecto");
         return;
     }
 
-    // Crear la trama para enviar al worker Harley
-    SocketMessage workerMessage;
-    workerMessage.type = 0x02;                                     // Tipo de mensaje para worker
-    workerMessage.dataLength = strlen(userName) + strlen(ip) + 10; // Calcular tamaño dinámico
-    workerMessage.data = malloc(workerMessage.dataLength + 1);
-    snprintf(workerMessage.data, workerMessage.dataLength + 1, "%s&%s&%d", userName, ip, port);
-    workerMessage.timestamp = (unsigned int)time(NULL);
-    workerMessage.checksum = calculateChecksum(workerMessage.data, workerMessage.dataLength);
 
-    sendSocketMessage(workerFD, workerMessage);
-    free(workerMessage.data);
+    //AQUI SE DEBE DE BUSCAR EL WORKER DISPONIBLE Y ENVIARLE LA INFORMACION PARA QUE SE CONECTE pero falla.
+    Worker *worker = getAvailableWorkerByType(mediaType);
 
-    // Confirmar en consola
-    printToConsole("New Harley worker connected - ready to distort!!!!!!!!\n");
+    printToConsole(worker->workerType);
+    SocketMessage response;
+    response.type = 0x10;
+
+    char *responsedata;
+    if (worker != NULL)
+    {
+        printToConsole("Processing distortion request...\n");
+        asprintf(&responsedata, "%s&%d", worker->ip, worker->port);
+        response.dataLength = strlen(responsedata);
+        response.data = strdup(responsedata);
+        releaseWorker(worker->ip, worker->port);
+    }
+    else
+    {
+        printToConsole("Gotham could not process the distortion request. No workers\n");
+        response.dataLength = strlen("DISTORT_KO");
+        response.data = strdup("DISTORT_KO");
+    }
+
+    response.timestamp = (unsigned int)time(NULL);
+    response.checksum = calculateChecksum(response.data, response.dataLength);
+    sendSocketMessage(clientSocketFD, response);
+
+    printToConsole("Gotham me ha respondido\n");
+    free(response.data);
 }
 
 /**
@@ -328,72 +344,133 @@ void *listenToFleck(void *args)
     }
     printToConsole("Waiting for connections...\n\n");
 
+    // Inicializar conjuntos de descriptores de archivo
+    fd_set master_set, read_set;
+    FD_ZERO(&master_set);
+    FD_ZERO(&read_set);
+
+    // Agregar el socket de escucha al conjunto maestro
+    FD_SET(listenFleckFD, &master_set);
+    int max_fd = listenFleckFD; // Máximo descriptor de archivo
+
     while (1)
     {
-        // Aceptar conexión entrante
-        int fleckSocketFD = accept(listenFleckFD, (struct sockaddr *)NULL, NULL);
-        if (fleckSocketFD < 0)
+
+        read_set = master_set; // Copiar el conjunto maestro para `select()`
+
+        // Esperar actividad en los descriptores de archivo
+        int activity = select(max_fd + 1, &read_set, NULL, NULL, NULL);
+        if (activity < 0)
         {
-            printToConsole("Error al aceptar conexión de Fleck\n");
-            continue;
+            printError("Error en select()\n");
+            break;
         }
 
-        // Recibir mensaje de Fleck
-        SocketMessage receivedMessage = getSocketMessage(fleckSocketFD);
-        if (receivedMessage.data == NULL || receivedMessage.type != 0x01)
+        // Iterar sobre los descriptores de archivo activos
+        for (int fd = 0; fd <= max_fd; ++fd)
         {
-            printToConsole("Error en el formato del mensaje recibido de Fleck\n");
-            free(receivedMessage.data);
-            close(fleckSocketFD);
-            continue;
-        }
-
-        // Procesar la trama de Fleck: <userName>&<IP>&<Port>
-        char *userName = strtok(receivedMessage.data, "&");
-        char *userIP = strtok(NULL, "&");
-        char *userPortStr = strtok(NULL, "&");
-
-        if (userName && userIP && userPortStr)
-        {
-
-            char message[MAX_MESSAGE_SIZE];
-            snprintf(message, sizeof(message), "New user connected: %s.\n", userName);
-            printToConsole(message);
-
-            // Obtener un worker disponible
-            Worker *availableWorker = getAvailableWorker();
-
-            if (availableWorker != NULL)
+            if (FD_ISSET(fd, &read_set))
             {
-                snprintf(message, sizeof(message), "Redirigiendo a %s worker en IP: %s, Puerto: %d\n",
-                         availableWorker->workerType, availableWorker->ip, availableWorker->port);
-                printToConsole(message);
-                releaseWorker(availableWorker->ip, availableWorker->port);
-            }
-            else
-            {
-                // snprintf(message, sizeof(message), "No hay workers disponibles para atender a %s en este momento.\n", userName);
-                // printToConsole(message);
-                //  Sin Workers disponibles
-                const char *errorMessage = "No workers available.";
-                SocketMessage response = {0x09, strlen(errorMessage), strdup(errorMessage), (unsigned int)time(NULL), 0};
-                sendSocketMessage(fleckSocketFD, response);
-                free(response.data);
-            }
-        }
-        else
-        {
-            printToConsole("Formato de datos incorrecto recibido de Fleck.\n");
-        }
+                if (fd == listenFleckFD)
+                {
+                    // Nueva conexión entrante
+                    int newSocketFD = accept(listenFleckFD, (struct sockaddr *)NULL, NULL);
+                    if (newSocketFD < 0)
+                    {
+                        printError("Error al aceptar conexión de Fleck\n");
+                        continue;
+                    }
 
-        // Liberar recursos y cerrar el socket
-        free(receivedMessage.data);
-        close(fleckSocketFD);
+                    // Agregar el nuevo socket al conjunto maestro
+                    FD_SET(newSocketFD, &master_set);
+                    if (newSocketFD > max_fd)
+                    {
+                        max_fd = newSocketFD; // Actualizar el máximo descriptor de archivo
+                    }
+                    printToConsole("Nueva conexión de Fleck aceptada.\n");
+                }
+                else
+                {
+                    // Socket existente - recibir mensaje
+                    SocketMessage receivedMessage = getSocketMessage(fd);
+                    if (receivedMessage.data == NULL)
+                    {
+                        printToConsole("Error al recibir datos. Cerrando conexión...\n");
+                        close(fd);
+                        FD_CLR(fd, &master_set);
+                        continue;
+                    }
+
+                    char message[256];
+                    // Manejar el tipo de mensaje
+                    switch (receivedMessage.type)
+                    {
+                    case 0x01: // Solicitud de conexión
+                        // Procesar la trama de Fleck: <userName>&<IP>&<Port>
+                        char *userName = strtok(receivedMessage.data, "&");
+                        if (userName != NULL)
+                        {
+                            snprintf(message, sizeof(message), "New user connected: %s.\n", userName);
+                            printToConsole(message);
+                        }
+                        else
+                        {
+                            printToConsole("Error al procesar el nombre del usuario.\n");
+                        }
+
+                        // Responder con ACK de conexión
+                        {
+                            SocketMessage response = {0x01, 0, NULL, (unsigned int)time(NULL), 0};
+                            sendSocketMessage(fd, response);
+                        }
+                        break;
+
+                    case 0x10: // Petición de distorsión
+                        //printToConsole("Processing distortion request...\n");
+                        handleDistortRequest(receivedMessage, fd);
+                        break;
+
+                    case 0x11: // Solicitud de reasignación de Worker
+                        printToConsole("Processing reassignment request...\n");
+                        handleDistortRequest(receivedMessage, fd);
+                        break;
+
+                    case 0x07: // Desconexión
+                        snprintf(message, sizeof(message), "User disconnected: %s\n", receivedMessage.data);
+                        printToConsole(message);
+
+                        // Responder con ACK de desconexión
+                        {
+                            SocketMessage response = {0x07, 0, NULL, (unsigned int)time(NULL), 0};
+                            sendSocketMessage(fd, response);
+                        }
+
+                        // Eliminar socket del conjunto maestro y cerrarlo
+                        close(fd);
+                        FD_CLR(fd, &master_set);
+                        break;
+
+                    default: // Tipo no reconocido
+                        printToConsole("Tipo de mensaje no reconocido. Enviando trama de error...\n");
+                        {
+                            SocketMessage errorResponse = {0x09, 0, NULL, (unsigned int)time(NULL), 0};
+                            sendSocketMessage(fd, errorResponse);
+                        }
+                        break;
+                    }
+
+                    // Liberar recursos del mensaje recibido
+                    free(receivedMessage.data);
+                }
+            }
+        }
     }
 
     close(listenFleckFD);
+    printToConsole("CLOSING FLECK SOCKET\n");
     pthread_exit(NULL);
 }
+
 //---------------------------------- U S E R ------------------------------------
 
 //---------------------------------- W O R K E R S ------------------------------------
@@ -574,47 +651,16 @@ void registerWorker(const char *workerType, const char *ip, int port)
  */
 void assignPrimaryWorker(Worker *worker)
 {
-    if (strcmp(worker->workerType, "Harley") == 0 && primaryHarley == NULL)
+    // No es media ha de ser Harley
+    if (strcmp(worker->workerType, "Media") == 0 && primaryHarley == NULL)
     {
         primaryHarley = worker;
         printToConsole("Primary Harley assigned.\n");
     }
-    else if (strcmp(worker->workerType, "Enigma") == 0 && primaryEnigma == NULL)
+    else if (strcmp(worker->workerType, "Text") == 0 && primaryEnigma == NULL)
     {
         primaryEnigma = worker;
         printToConsole("Primary Enigma assigned.\n");
-    }
-}
-
-/**
- * @brief Procesa una solicitud en función del tipo de worker.
- *
- * @param workerType Tipo de worker (por ejemplo, "Harley", "Enigma").
- * @param ip Dirección IP del worker.
- * @param port Puerto del worker.
- */
-void processFileBasedOnWorkerType(const char *workerType, const char *ip, int port)
-{
-    if (strcmp(workerType, "Harley") == 0)
-    {
-
-        // char message[256];
-        //  snprintf(message, sizeof(message), "New %s worker connected – ready to distort!\n", workerType);
-        //  printToConsole(message);
-        printToConsole("Procesando distorsión del archivo por Harley\n");
-        // Implementar la lógica específica para Harley aquí
-    }
-    else if (strcmp(workerType, "Enigma") == 0)
-    {
-        // char message[256];
-        //  snprintf(message, sizeof(message), "New %s worker connected – ready to distort!\n", workerType);
-        //  printToConsole(message);
-        printToConsole("Procesando distorsión del archivo por Enigma\n");
-        // Implementar la lógica específica para Enigma aquí
-    }
-    else
-    {
-        printError("Tipo de worker desconocido");
     }
 }
 
@@ -678,7 +724,7 @@ void *listenToDistorsionWorkers(void *args)
             sendSocketMessage(workerSocketFD, response);
 
             char message[256];
-            snprintf(message, sizeof(message), "Nuevo %s worker conectado - listo para distorsionar!\n", workerType);
+            snprintf(message, sizeof(message), "NEW %s worker connected - ready to distort!\n", workerType);
             printToConsole(message);
         }
         else

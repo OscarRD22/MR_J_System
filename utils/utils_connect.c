@@ -127,7 +127,7 @@ int calculateChecksum(const char *buffer, size_t length) {
     int checksum = 0;
 
     // Sumar els valors ASCII dels primers 250 bytes
-    for (size_t i = 0; i < length -6; i++) {
+    for (size_t i = 0; i < length - 6; i++) {
         checksum += (unsigned char)buffer[i];
     }
 
