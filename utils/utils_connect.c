@@ -139,6 +139,7 @@ int calculateChecksum(const char *buffer, size_t length) {
 
 
 
+
 /**
  * @brief Creates a socket and connects it to a server
  * @param IP The IP address of the server

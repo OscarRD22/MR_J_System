@@ -142,15 +142,22 @@ void commandInterpretter()
             else
             {
                 char *buffer = NULL;
-                connectToGotham(FALSE);
-                asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n$ ", fleck.username);
-                printToConsole(buffer);
-                free(buffer);
-                free(command);
-                
-                command = NULL;
-                 getSocketMessage(gothamSocketFD);
-                iSConnected = TRUE;
+                int result = connectToGotham(FALSE);
+                if (result == 0)
+                {
+                    asprintf(&buffer, "%s connected to Mr. J System. Let the chaos begin!:)\n$ ", fleck.username);
+                    printToConsole(buffer);
+                    free(buffer);
+                    free(command);
+
+                    command = NULL;
+                    getSocketMessage(gothamSocketFD);
+                    iSConnected = TRUE;
+                }
+                else
+                {
+                    printf("Failed to connect to Gotham.\n");
+                }
             }
         }
         else if (strcasecmp(command, "LOGOUT") == 0)
@@ -165,7 +172,8 @@ void commandInterpretter()
             char *token = strtok(command, " ");
             if (token != NULL)
             {
-                if (strcasecmp(token, "DISTORT") == 0){
+                if (strcasecmp(token, "DISTORT") == 0)
+                {
                     char *filename = strtok(NULL, " ");
                     if (filename == NULL)
                     {
@@ -190,9 +198,9 @@ void commandInterpretter()
                         //  free(b);
 
                         // asprintf("ESTE ES EL TOKEN %s\n", token)
-                        DISTORSION = TRUE; // EMPIEZA A DISTORSIONAR
+                        DISTORSION = TRUE;                      // EMPIEZA A DISTORSIONAR
                         handleDistortCommand(filename, factor); //* ESTO SEGURAMENTE SEA UN THREAD
-                        DISTORSION = FALSE; // PUEDE QUE HAYA TERMINADO DE DISTORSIONAR
+                        DISTORSION = FALSE;                     // PUEDE QUE HAYA TERMINADO DE DISTORSIONAR
                     }
                 }
                 else if (strcasecmp(token, "CHECK") == 0)
@@ -203,7 +211,9 @@ void commandInterpretter()
                         printError("ERROR: Please input a valid command.\n");
                         free(command);
                         command = NULL;
-                    }else if (strcasecmp(token, "STATUS") == 0) {
+                    }
+                    else if (strcasecmp(token, "STATUS") == 0)
+                    {
                         if (DISTORSION == TRUE)
                         {
                             printToConsole("Command ok\n");
@@ -238,14 +248,12 @@ void commandInterpretter()
                 else if (strcasecmp(token, "CLEAR") == 0)
                 {
 
-
-
                     token = strtok(NULL, " ");
                     if (token != NULL && strcasecmp(token, "ALL") == 0)
                     {
-                         clearAll();
-                         free(command);
-                         command = NULL;
+                        clearAll();
+                        free(command);
+                        command = NULL;
                     }
                 }
                 else

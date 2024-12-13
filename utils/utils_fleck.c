@@ -124,78 +124,106 @@ void listText()
 }
 
 /**
- * @brief Connects to the Gotham server with stable connection
- * @param isExit to know if the Fleck is exiting (need to send disconnect to Gotham) or not (need to connect to Harly/Enigma)
+ * @brief Connects to the Gotham server with stable connection.
+ * @param isExit Indicates whether the Fleck is exiting (send disconnect to Gotham) or not (send connection request).
+ * @return int Returns 0 on success, -1 on failure.
  */
-
+/**
+ * @brief Connects to the Gotham server with stable connection.
+ * @param isExit Indicates whether the Fleck is exiting (send disconnect to Gotham) or not (send connection request).
+ * @return int Returns 0 on success, -1 on failure.
+ */
 int connectToGotham(int isExit)
 {
+    // Crear y conectar el socket
     if ((gothamSocketFD = createAndConnectSocket(fleck.ip, fleck.port, FALSE)) < 0)
     {
         printError("Error connecting to Gotham\n");
-
-        exit(1);
+        return -1;
     }
 
-    // CONNECTED TO GOTHAM
-    SocketMessage m;
+    // Preparar el mensaje para enviar a Gotham
+    SocketMessage message;
     char *buffer = NULL;
 
-    if (isExit == FALSE)
+    if (!isExit)
     {
-        asprintf(&buffer, "%s&%s&%d", fleck.username, fleck.ip, fleck.port);
-        m.type = 0x01;
-        m.dataLength = strlen(buffer);
-        m.data = strdup(buffer);
-        m.timestamp = (unsigned int)time(NULL);
-        // m.checksum = checksum será recalculado dentro de la función sendSocketMessage
-        sendSocketMessage(gothamSocketFD, m);
+        // Solicitud de conexión
+        if (asprintf(&buffer, "%s&%s&%d", fleck.username, fleck.ip, fleck.port) < 0)
+        {
+            printError("Error allocating memory for connection message\n");
+            close(gothamSocketFD);
+            return -1;
+        }
+        message.type = 0x01; // Tipo de mensaje de conexión
     }
-    else if (isExit == TRUE)
+    else
     {
-        asprintf(&buffer, "%s", fleck.username);
-        m.type = 0x07;
-        m.dataLength = strlen(buffer);
-        m.data = strdup(fleck.username);
-        m.timestamp = (unsigned int)time(NULL);
-        sendSocketMessage(gothamSocketFD, m);
+        // Solicitud de desconexión
+        if (asprintf(&buffer, "%s", fleck.username) < 0)
+        {
+            printError("Error allocating memory for disconnection message\n");
+            close(gothamSocketFD);
+            return -1;
+        }
+        message.type = 0x07; // Tipo de mensaje de desconexión
     }
 
-    free(m.data);
+    message.dataLength = strlen(buffer);
+    message.data = strdup(buffer);
+    message.timestamp = (unsigned int)time(NULL);
+    message.checksum = calculateChecksum(message.data, message.dataLength);
+
+    printf("Message being sent: %s\n", buffer);
+
+    // Enviar el mensaje a Gotham
+    sendSocketMessage(gothamSocketFD, message);
+    printf("Type: %d, DataLength: %d, Data: %s, Timestamp: %u, Checksum: %d\n",
+           message.type, message.dataLength, message.data, message.timestamp, message.checksum);
+
+    // Liberar el buffer del mensaje
     free(buffer);
-    // Receive response
+    free(message.data);
+
+    // Recibir la respuesta de Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
-    // handle response
-    if (isExit == FALSE)
+    // Manejar la respuesta
+    if (!isExit)
     {
-        if (response.type != 0x01)
+        // Respuesta a la solicitud de conexión
+        if (response.type == 0x01)
         {
-            printError("Error connecting to Gotham\n");
+            printf("Connected to Gotham successfully!\n");
         }
-
-        free(response.data);
-
-        return FALSE;
+        else
+        {
+            printError("Error connecting to Gotham: Invalid response type\n");
+            free(response.data);
+            close(gothamSocketFD);
+            return -1;
+        }
     }
-    else if (isExit == TRUE)
+    else
     {
+        // Respuesta a la solicitud de desconexión
         if (response.type == 0x07 && strcmp(response.data, "CON_KO") == 0)
         {
             printError("Error disconnecting from Gotham\n");
-            logout();
+            free(response.data);
+            close(gothamSocketFD);
+            return -1;
         }
-        free(response.data);
-
-        close(gothamSocketFD);
-
-        return TRUE;
+        printf("Disconnected from Gotham successfully!\n");
     }
 
-    // It should never reach this point, but if it arrives, it returns -1.
+    // Liberar recursos y cerrar el socket
     free(response.data);
-    return -1;
+    close(gothamSocketFD);
+    return 0;
 }
+
+
 
 /**
  * @brief Clears everything in Fleck the folder
@@ -366,7 +394,7 @@ void sendFileToWorker(int workerSocket, char *filename, int factor) {
         return;
     }
 
-    printf("File distortion successful: %s\n", response.data);
+    printToConsole("File distortion successful: %s\n", response.data);
 }
 
 */

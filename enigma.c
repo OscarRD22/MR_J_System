@@ -86,62 +86,70 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
-int connectToGothamWorker(const char *workerType, const char *ip, int port)
+int connectToEnigmaWorker(const char *WType)
 {
-    
 
     // Crear y conectar el socket a Gotham
-    if ((gothamSocketFD = createAndConnectSocket(ip, port, FALSE)) < 0)
+    if ((gothamSocketFD = createAndConnectSocket(enigma.gotham_ip, enigma.gotham_port, FALSE)) < 0)
     {
-        printError("Error connecting to Gotham\n");
-        exit(1);
+        printError("Error al crear y conectar el socket con Gotham");
+        return -1;
     }
 
-    // Preparar el mensaje de solicitud de conexión
-    SocketMessage m;
-    m.type = 0x02; // Tipo de mensaje para solicitar conexión
-    char *buffer;
-    m.dataLength = strlen(buffer);
-    asprintf(&buffer, "%s&%s&%d", workerType, ip, port);
-    m.data = strdup(buffer);
-    // m.timestamp = (unsigned int)time(NULL);
-    // m.checksum = calculateChecksum(m.data, m.dataLength);
-    // Enviar el mensaje de solicitud a Gotham
-    sendSocketMessage(gothamSocketFD, m);
-    free(m.data);
-    free(buffer);
 
-    // Recibir la respuesta de Gotham
+// Crear el mensaje a enviar a Gotham
+    char *messageBuffer = NULL;
+    if (asprintf(&messageBuffer, "%s&%s&%d", enigma.worker_type, enigma.gotham_ip, enigma.gotham_port) < 0)
+    {
+        printError("Error al asignar memoria para el mensaje");
+        close(gothamSocketFD);
+        return -1;
+    }
+
+    // Imprimir el mensaje que se enviará a Gotham
+    printToConsole("Mensaje que envia Enigma a Gotham: ");
+    printToConsole(messageBuffer);
+
+    SocketMessage messageToSend;
+    messageToSend.type = 0x02; // Tipo de mensaje para conexión
+    messageToSend.dataLength = strlen(messageBuffer);
+    messageToSend.data = strdup(messageBuffer);
+    messageToSend.timestamp = (unsigned int)time(NULL);
+    messageToSend.checksum = calculateChecksum(messageToSend.data, messageToSend.dataLength);
+
+    free(messageBuffer); // Liberar memoria del buffer intermedio
+
+    // Enviar el mensaje al servidor Gotham
+    sendSocketMessage(gothamSocketFD, messageToSend);
+
+    free(messageToSend.data); // Liberar el mensaje enviado
+
+    // Recibir la respuesta del servidor Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
-
-    if (response.type == 0x02)
+    if (response.type != 0x02)
     {
-        if (response.dataLength == 0)
-        {
-            printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n\n");
-            printToConsole("Waiting for connections...\n");
-        }
-        else if (response.dataLength == strlen("CON_KO") && strcmp(response.data, "CON_KO") == 0)
-        {
-            printError("Error: Unable to establish connection with Gotham.\n");
-            free(response.data);
-            close(gothamSocketFD);
-            return -1; // Retorna un error si la conexión falla
-        }
-    }
-    else
-    {
-        printError("Unexpected response type from Gotham.\n");
+        printError("Tipo de respuesta inesperado recibido desde Gotham");
         free(response.data);
         close(gothamSocketFD);
         return -1;
     }
 
-    // Liberar memoria y cerrar el socket
-    free(response.data);
-    close(gothamSocketFD);
+    // Verificar el contenido de la respuesta
+    if (response.dataLength == strlen("CON_KO") && strcmp(response.data, "CON_KO") == 0)
+    {
+        printError("Conexión rechazada por Gotham");
+        free(response.data);
+        close(gothamSocketFD);
+        return -1;
+    }
 
-    return 0; // Retorna 0 si la conexión fue exitosa
+    printToConsole("\nConnected to Mr. J System, ready to listen to Fleck petitions\n\n");
+
+    free(response.data);   // Liberar la memoria de la respuesta
+    close(gothamSocketFD); // Cerrar el socket si ya no se necesita
+
+    return 0; 
+
 }
 
 /**
@@ -153,25 +161,22 @@ int connectToGothamWorker(const char *workerType, const char *ip, int port)
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
-
     printToConsole("Reading configuration file.\n");
-
     saveEnigma(argv[1]);
-
     printToConsole("Connecting Enigma worker to the system...\n");
 
     // Conectar Enigma a Gotham
-    if (connectToGothamWorker("Enigma", enigma.gotham_ip, enigma.gotham_port) != 0)
+    if (connectToEnigmaWorker("Enigma") != 0)
     {
-        // Manejar el error de conexión
-        return 1;
+        printError("Failed to connect to Gotham. Exiting...\n");
+        closeProgramSignal(0);
     }
-
+    printToConsole("Waiting for connections...\n");
     while (1)
     {
-        // Código para recibir y manejar peticiones de clientes
+        // Aquí va la lógica principal del servidor
     }
 
-    closeProgramSignal();
+    closeProgramSignal(0);
     return 0;
 }
