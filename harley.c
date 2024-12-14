@@ -5,7 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-
+#include <pthread.h>
+#include "so_compression.h" // Llibreria de compressió
 #include "utils/utils_connect.h"
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
@@ -14,6 +15,8 @@
 // This is the client
 Harley_enigma harley;
 int gothamSocketFD;
+int isPrimaryWorker = FALSE; // Indica si aquest Harley és el principal
+pthread_mutex_t primaryMutex = PTHREAD_MUTEX_INITIALIZER;
 
 /**
  * @brief Free the memory allocated
@@ -59,6 +62,174 @@ void saveHarley(char *filename)
 }
 
 /**
+ * @brief Compress an image using the SO_compression library.
+ * @param filename The name of the image file to compress.
+ * @param scale_factor The scale factor to apply to the image.
+ */
+void compressImage(const char *filename, int scale_factor)
+{
+    printToConsole("Starting image compression...\n");
+    int status = SO_compressImage((char *)filename, scale_factor);
+
+    if (status < 0)
+    {
+        printError("Image compression failed.\n");
+        return;
+    }
+
+    char message[256];
+    snprintf(message, sizeof(message), "Image compression completed successfully for file: %s\n", filename);
+    printToConsole(message);
+}
+
+/**
+ * @brief Compress an audio file using the SO_compression library.
+ * @param filename The name of the audio file to compress.
+ * @param interval_ms The interval in milliseconds for compression.
+ */
+void compressAudio(const char *filename, int interval_ms)
+{
+    printToConsole("Starting audio compression...\n");
+    int status = SO_compressAudio((char *)filename, interval_ms);
+
+    if (status < 0)
+    {
+        printError("Audio compression failed.\n");
+        return;
+    }
+
+    char message[256];
+    snprintf(message, sizeof(message), "Audio compression completed successfully for file: %s\n", filename);
+    printToConsole(message);
+}
+
+/**
+ * @brief Handle a distortion task assigned by Gotham.
+ * @param taskType The type of task (image or audio).
+ * @param filename The name of the file to process.
+ * @param factor The compression factor or interval (depending on task type).
+ */
+void handleDistortionTask(const char *taskType, const char *filename, int factor)
+{
+    if (strcasecmp(taskType, "image") == 0)
+    {
+        compressImage(filename, factor);
+    }
+    else if (strcasecmp(taskType, "audio") == 0)
+    {
+        compressAudio(filename, factor);
+    }
+    else
+    {
+        printError("Unknown task type. Cannot handle distortion task.\n");
+    }
+}
+
+/**
+ * @brief Handles incoming connections and processes distortion tasks.
+ */
+void *listenForTasks(void *args)
+{
+    printToConsole("Listening for incoming tasks...\n");
+
+    int listenFD = createAndListenSocket(harley.fleck_ip, harley.fleck_port);
+    if (listenFD < 0)
+    {
+        printError("Failed to create listening socket.\n");
+        pthread_exit(NULL);
+    }
+
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(listenFD, &read_fds);
+
+    int max_fd = listenFD;
+
+    while (1)
+    {
+        fd_set temp_fds = read_fds;
+        int activity = select(max_fd + 1, &temp_fds, NULL, NULL, NULL);
+
+        if (activity < 0)
+        {
+            printError("Error in select.\n");
+            continue;
+        }
+
+        if (FD_ISSET(listenFD, &temp_fds))
+        {
+            int clientSocketFD = accept(listenFD, NULL, NULL);
+            if (clientSocketFD < 0)
+            {
+                printError("Error accepting connection.\n");
+                continue;
+            }
+
+            SocketMessage request = getSocketMessage(clientSocketFD);
+
+            if (request.type == 0x03) // Distortion request
+            {
+                char *username = strtok(request.data, "&");
+                char *filename = strtok(NULL, "&");
+                char *factorStr = strtok(NULL, "&");
+
+                if (username && filename && factorStr)
+                {
+                    int factor = atoi(factorStr);
+                    char *extension = strrchr(filename, '.');
+
+                    if (!extension)
+                    {
+                        printError("Invalid file extension. Aborting task.\n");
+                        continue;
+                    }
+
+                    if (strcasecmp(extension, ".wav") == 0)
+                    {
+                        handleDistortionTask("audio", filename, factor);
+                    }
+                    else if (strcasecmp(extension, ".png") == 0 || strcasecmp(extension, ".jpg") == 0)
+                    {
+                        handleDistortionTask("image", filename, factor);
+                    }
+                    else
+                    {
+                        printError("Unsupported file type for distortion.\n");
+                    }
+                }
+                else
+                {
+                    printError("Invalid request format from client.\n");
+                }
+
+                free(request.data);
+                close(clientSocketFD);
+            }
+        }
+    }
+
+    close(listenFD);
+    pthread_exit(NULL);
+}
+
+/**
+ * @brief Handles failure recovery if the primary worker crashes.
+ */
+void handleFailureRecovery()
+{
+    pthread_mutex_lock(&primaryMutex);
+
+    if (isPrimaryWorker)
+    {
+        printToConsole("Primary worker failed. Handling recovery...\n");
+        // Implement logic to notify Gotham and reassign tasks
+        // Notify connected Harleys to synchronize state
+    }
+
+    pthread_mutex_unlock(&primaryMutex);
+}
+
+/**
  * @brief Closes the program correctly cleaning the memory and closing the file descriptors
  */
 void closeProgramSignal()
@@ -82,70 +253,6 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
-/**
- * @brief Connects to the Gotham server funcion antigua "BORRAR"
- 
-int connectToGotham()
-{
-    // Crear y conectar el socket a Gotham
-    if ((gothamSocketFD = createAndConnectSocket(harley.gotham_ip, harley.gotham_port, FALSE)) < 0)
-    {
-        printError("Error connecting to Gotham\n");
-        return -1;
-    }
-
-    SocketMessage m;
-    char *buffer = NULL;
-
-    // Crear el contenido del mensaje
-    if (asprintf(&buffer, "%s&%s&%d", "Harley", harley.gotham_ip, harley.gotham_port) < 0)
-    {
-        printError("Error allocating memory for message\n");
-        close(gothamSocketFD); // Cierra el socket antes de salir
-        return -1;
-    }
-
-    // Configurar los campos del mensaje
-    m.type = 0x02;
-    m.dataLength = strlen(buffer);
-    m.data = strdup(buffer);
-    m.timestamp = (unsigned int)time(NULL);
-    m.checksum = calculateChecksum(m.data, m.dataLength);
-
-    sendSocketMessage(gothamSocketFD, m);
-    free(buffer);
-
-    SocketMessage response = getSocketMessage(gothamSocketFD);
-
-    if (response.type == 0x02)
-    {
-        if (response.dataLength == 0)
-        {
-            printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n\n");
-            printToConsole("Waiting for connections...\n");
-        }
-        else if (response.dataLength == strlen("CON_KO") && strcmp(response.data, "CON_KO") == 0)
-        {
-            printError("Error: Unable to establish connection with Gotham.\n");
-            free(response.data);
-            close(gothamSocketFD);
-            return -1;
-        }
-    }
-    else
-    {
-        printError("Unexpected response type from Gotham.\n");
-        free(response.data);
-        close(gothamSocketFD);
-        return -1;
-    }
-
-    free(response.data);
-    close(gothamSocketFD);
-
-    return 0;
-}
-*/
 int connectHarleyToGotham()
 {
     int gothamSocketFD = createAndConnectSocket(harley.gotham_ip, harley.gotham_port, FALSE);
@@ -184,7 +291,8 @@ int connectHarleyToGotham()
 
     // Recibir la respuesta del servidor Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
-    if (response.type != 0x02 || (response.dataLength && strcmp(response.data, "CON_KO") == 0)) {
+    if (response.type != 0x02 || (response.dataLength && strcmp(response.data, "CON_KO") == 0))
+    {
         printError("Connection rejected by Gotham.\n");
         free(response.data);
         close(gothamSocketFD);
@@ -216,15 +324,13 @@ int main(int argc, char *argv[])
     if (connectHarleyToGotham() != 0)
     {
         printError("Failed to connect to Gotham. Exiting...\n");
-        closeProgramSignal(0); // Cerrar programa con limpieza
-    }
-    printToConsole("Waiting for connections...\n");
-    // Continuar con la lógica de funcionamiento del servidor
-    while (1)
-    {
-        // Aquí va la lógica principal del servidor
+        closeProgramSignal();
     }
 
-    closeProgramSignal(0); // Limpieza final
+    pthread_t taskListenerThread;
+    pthread_create(&taskListenerThread, NULL, listenForTasks, NULL);
+
+    pthread_join(taskListenerThread, NULL);
+    closeProgramSignal();
     return 0;
 }
