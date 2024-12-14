@@ -4,11 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "utils/utils_connect.h"
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
-#include <time.h>
 // Osar.romero - Marc.marza
 
 // This is the client
