@@ -86,7 +86,8 @@ void initalSetup(int argc)
 
 int connectHarleyToGotham()
 {
-    int gothamSocketFD = createAndConnectSocket(harley.gotham_ip, harley.gotham_port, FALSE);
+    // Usar la variable global gothamSocketFD
+    gothamSocketFD = createAndConnectSocket(harley.gotham_ip, harley.gotham_port, FALSE);
     if (gothamSocketFD < 0)
     {
         printError("Error al crear y conectar el socket con Gotham");
@@ -98,81 +99,116 @@ int connectHarleyToGotham()
     if (asprintf(&messageBuffer, "%s&%s&%d", harley.worker_type, harley.gotham_ip, harley.gotham_port) < 0)
     {
         printError("Error al asignar memoria para el mensaje");
-        close(gothamSocketFD);
         return -1;
     }
 
-    // Imprimir el mensaje que se enviará a Gotham
-    printToConsole("Mensaje que envia Harley a Gotham: ");
-    printToConsole(messageBuffer);
+    SocketMessage messageToSend = {
+        .type = 0x02,
+        .dataLength = strlen(messageBuffer),
+        .data = strdup(messageBuffer),
+        .timestamp = (unsigned int)time(NULL),
+        .checksum = calculateChecksum(messageBuffer, strlen(messageBuffer))};
 
-    SocketMessage messageToSend;
-    messageToSend.type = 0x02; // Tipo de mensaje para conexión
-    messageToSend.dataLength = strlen(messageBuffer);
-    messageToSend.data = strdup(messageBuffer);
-    messageToSend.timestamp = (unsigned int)time(NULL);
-    messageToSend.checksum = calculateChecksum(messageToSend.data, messageToSend.dataLength);
+    free(messageBuffer);
+    printToConsole("Enviando mensaje de registro a Gotham...");
 
-    free(messageBuffer); // Liberar memoria del buffer intermedio
-
-    // Enviar el mensaje al servidor Gotham
     sendSocketMessage(gothamSocketFD, messageToSend);
+    free(messageToSend.data);
 
-    free(messageToSend.data); // Liberar el mensaje enviado
-
-    // Recibir la respuesta del servidor Gotham
+    // Recibir la respuesta de Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
-    if (response.type != 0x02)
-    {
-        printError("Tipo de respuesta inesperado recibido desde Gotham");
-        free(response.data);
-        close(gothamSocketFD);
-        return -1;
-    }
-
-    // Verificar el contenido de la respuesta
-    if (response.dataLength == strlen("CON_KO") && strcmp(response.data, "CON_KO") == 0)
+    if (response.type != 0x02 || (response.dataLength > 0 && strcmp(response.data, "CON_KO") == 0))
     {
         printError("Conexión rechazada por Gotham");
         free(response.data);
-        close(gothamSocketFD);
         return -1;
     }
 
-    printToConsole("\nConnected to Mr. J System, ready to listen to Fleck petitions\n\n");
-
-    free(response.data);   // Liberar la memoria de la respuesta
-    close(gothamSocketFD); // Cerrar el socket si ya no se necesita
+    free(response.data);
+    printToConsole("Connected to Gotham successfully.\n");
 
     return 0; // Éxito
 }
 
-/**
- * @brief Main function of the Harley server
- * @param argc The number of arguments
- * @param argv The arguments
- * @return 0 if the program ends correctly
- */
+
+void handleMessageFromFleck(SocketMessage message)
+{
+    // Simular la recepción de una petición de distorsión
+    if (message.type == 0x05) // Tipo 0x05: Petición de distorsión
+    {
+        char *fileName = strtok(message.data, "&");
+        char *factorStr = strtok(NULL, "&");
+
+        int factor = atoi(factorStr);
+        if (!fileName || factor <= 0)
+        {
+            printError("Invalid distortion request format.\n");
+            return;
+        }
+
+        char buffer[256];
+        snprintf(buffer, sizeof(buffer), "New request - Arthur wants to distort %s, with factor %d.", fileName, factor);
+        printToConsole(buffer);
+
+        printToConsole("Receiving original text...");
+        sleep(1); // Simular tiempo de recepción
+
+        printToConsole("Distorting...");
+        sleep(2); // Simular tiempo de procesamiento de distorsión
+
+        printToConsole("Sending distorted text to Arthur...");
+        sleep(1); // Simular tiempo de envío
+
+        printToConsole("Distortion completed successfully!\n");
+    }
+    else
+    {
+        printToConsole("Unknown message type. Ignoring...\n");
+    }
+}
+
 int main(int argc, char *argv[])
 {
     initalSetup(argc);
     printToConsole("Reading configuration file.\n");
     saveHarley(argv[1]);
-    printToConsole("Connecting Harley worker to the system...\n");
+    printToConsole("Connecting Harley worker to the system...");
 
-    // Conectar Harley a Gotham
-    if (connectHarleyToGotham() != 0)
-    {
-        printError("Failed to connect to Gotham. Exiting...\n");
-        closeProgramSignal(0); // Cerrar programa con limpieza
-    }
-    printToConsole("Waiting for connections...\n");
-    // Continuar con la lógica de funcionamiento del servidor
     while (1)
     {
-        // Aquí va la lógica principal del servidor
+    printToConsole("Intentando conectar Harley a Gotham...");
+
+        // Intentar conexión a Gotham
+        if (connectHarleyToGotham() != 0)
+        {
+            printError("Failed to connect to Gotham. Retrying in 5 seconds...\n");
+            sleep(5);
+            continue;
+        }
+
+        printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n");
+
+        // Mantener la conexión y procesar mensajes
+        while (1)
+        {
+            printToConsole("Waiting for connections...\n");
+            SocketMessage message = getSocketMessage(gothamSocketFD);
+
+            // Simulación: Espera un mensaje desde Gotham/Fleck
+            if (message.type == -1 || message.data == NULL)
+            {
+                printError("Lost connection to Gotham. Reconnecting...\n");
+                close(gothamSocketFD);
+                break; // Salir del bucle para reconectar
+            }
+
+            // Procesar los mensajes según el tipo
+            handleMessageFromFleck(message);
+            free(message.data);
+        }
     }
 
-    closeProgramSignal(0); // Limpieza final
+    closeProgramSignal();
     return 0;
 }
+

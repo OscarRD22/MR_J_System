@@ -174,8 +174,8 @@ int connectToGotham(int isExit)
 
     // Enviar el mensaje a Gotham
     sendSocketMessage(gothamSocketFD, message);
-    printf("Type: %d, DataLength: %d, Data: %s, Timestamp: %u, Checksum: %d\n",
-           message.type, message.dataLength, message.data, message.timestamp, message.checksum);
+    //printf("Type: %d, DataLength: %d, Data: %s, Timestamp: %u, Checksum: %d\n",
+    //       message.type, message.dataLength, message.data, message.timestamp, message.checksum);
 
     // Liberar el buffer del mensaje
     free(buffer);
@@ -185,37 +185,25 @@ int connectToGotham(int isExit)
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
     // Manejar la respuesta
-    if (!isExit)
+    if (!isExit && response.type == 0x01)
     {
-        // Respuesta a la solicitud de conexión
-        if (response.type == 0x01)
-        {
-            printf("Connected to Gotham successfully!\n");
-        }
-        else
-        {
-            printError("Error connecting to Gotham: Invalid response type\n");
-            free(response.data);
-            close(gothamSocketFD);
-            return -1;
-        }
+        printToConsole("Connected to Gotham successfully!");
+    }
+    else if (isExit && response.type == 0x07 && response.data != NULL && strcmp(response.data, "CON_KO") != 0)
+    {
+        printToConsole("Disconnected from Gotham successfully!");
+        close(gothamSocketFD);
     }
     else
     {
-        // Respuesta a la solicitud de desconexión
-        if (response.type == 0x07 && strcmp(response.data, "CON_KO") == 0)
-        {
-            printError("Error disconnecting from Gotham\n");
-            free(response.data);
-            close(gothamSocketFD);
-            return -1;
-        }
-        printf("Disconnected from Gotham successfully!\n");
+        printError("Unexpected response from Gotham");
+        free(response.data);
+        close(gothamSocketFD);
+        return -1;
     }
 
-    // Liberar recursos y cerrar el socket
     free(response.data);
-
+    //close(gothamSocketFD);
     return 0;
 }
 
@@ -255,8 +243,21 @@ void connectToHarleyAndDisconnect(const char *workerIP, int workerPort)
     }
     else
     {
-        printError("Unexpected response from Harley. Disconnecting...\n");
-    }
+printError("Worker disconnected unexpectedly. Notifying Gotham...\n");
+
+    // Notificar a Gotham
+    SocketMessage resumeRequest = {
+        .type = 0x11, 
+        .dataLength = strlen("RESUME_REQUEST"),
+        .data = strdup("RESUME_REQUEST"),
+        .timestamp = (unsigned int)time(NULL),
+        .checksum = calculateChecksum("RESUME_REQUEST", strlen("RESUME_REQUEST"))
+    };
+
+    sendSocketMessage(gothamSocketFD, resumeRequest);
+    free(resumeRequest.data);
+    close(workerSocketFD);
+    return;    }
 
     free(response.data);
 
@@ -276,6 +277,88 @@ void connectToHarleyAndDisconnect(const char *workerIP, int workerPort)
     // Cerrar el socket
     close(workerSocketFD);
 }
+
+/**
+ * @brief Envia una petició de distorsió a Gotham i processa la seva resposta.
+ * @param mediaType El tipus de media (extensió del fitxer, com "png", "wav").
+ * @param fileName El nom del fitxer a distorsionar.
+ * @return 0 si Gotham retorna un worker disponible, -1 en cas d'error o "DISTORT_KO".
+ */
+int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
+{
+
+// Crear y conectar el socket
+    if ((gothamSocketFD = createAndConnectSocket(fleck.ip, fleck.port, FALSE)) < 0)
+    {
+        printError("Error connecting to Gotham\n");
+        return -1;
+    }
+
+    // Construir el missatge per enviar a Gotham
+    char *dataBuffer = NULL;
+    if (asprintf(&dataBuffer, "%s&%s", mediaType, fileName) < 0)
+    {
+        printError("Failed to allocate memory for distortion request.\n");
+        return -1;
+    }
+
+    SocketMessage request;
+    request.type = 0x10; // Tipus de petició de distorsió
+    request.dataLength = strlen(dataBuffer);
+    request.data = dataBuffer;
+    request.timestamp = (unsigned int)time(NULL);
+    request.checksum = calculateChecksum(dataBuffer, request.dataLength);
+
+    printToConsole("Enviando solicitud de distorsión a Gotham...");
+
+    printf("Datos de la Solicitud Data: %s\n", request.data);
+
+
+    sendSocketMessage(gothamSocketFD, request);
+    free(dataBuffer);
+    printf("\nMensaje a Gotham enviado\n");
+
+    // Esperar resposta de Gotham
+    SocketMessage response = getSocketMessage(gothamSocketFD);
+    printf("Respuesta de Gotham: Type: %d, Data: %s\n", response.type, response.data);
+    //! Creo que Gotham si envia bien ip y puerto no se porque falla aqui al recibir el mensaje
+
+
+    if (response.type != 0x10)
+    {
+        printError("Invalid response type from Gotham.\n");
+        free(response.data);
+        return -1;
+    }
+
+    // Processar la resposta
+    if (strcmp(response.data, "DISTORT_KO") == 0)
+    {
+        printError("No workers available or invalid media type.\n");
+        free(response.data);
+        return -1;
+    }
+
+    // Obtenir IP i port del worker des de la resposta
+    char *workerIP = strtok(response.data, "&");
+    char *workerPortStr = strtok(NULL, "&");
+
+    if (!workerIP || !workerPortStr)
+    {
+        printError("Malformed response from Gotham.\n");
+        free(response.data);
+        return -1;
+    }
+
+    int workerPort = atoi(workerPortStr);
+
+    printf("Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
+    connectToHarleyAndDisconnect(workerIP, workerPort);
+
+    free(response.data);
+    return 0; // Èxit
+}
+
 
 /**
  * @brief Clears all resources and disconnects from Gotham.
@@ -303,71 +386,3 @@ void handleDistortCommand(const char *fileName, const char *factor)
     }
 }
 
-/**
- * @brief Envia una petició de distorsió a Gotham i processa la seva resposta.
- * @param mediaType El tipus de media (extensió del fitxer, com "png", "wav").
- * @param fileName El nom del fitxer a distorsionar.
- * @return 0 si Gotham retorna un worker disponible, -1 en cas d'error o "DISTORT_KO".
- */
-int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
-{
-    // Construir el missatge per enviar a Gotham
-    char *dataBuffer = NULL;
-    if (asprintf(&dataBuffer, "%s&%s", mediaType, fileName) < 0)
-    {
-        printError("Failed to allocate memory for distortion request.\n");
-        return -1;
-    }
-
-    SocketMessage request;
-    request.type = 0x10; // Tipus de petició de distorsió
-    request.dataLength = strlen(dataBuffer);
-    request.data = dataBuffer;
-    request.timestamp = (unsigned int)time(NULL);
-    request.checksum = calculateChecksum(dataBuffer, strlen(dataBuffer));
-
-    // Imprimir
-    char message[256];
-    snprintf(message, sizeof(message), "Tipus de petició de distorsió %s", request.data);
-    printToConsole(message);
-    // Enviar missatge a Gotham
-    sendSocketMessage(gothamSocketFD, request);
-    free(request.data);
-    printf("\nMensaje a Gotham enviado\n");
-    // Esperar resposta de Gotham
-    //! Creo que Gotham si envia bien ip y puerto no se porque falla aqui al recibir el mensaje
-    SocketMessage response = getSocketMessage(gothamSocketFD);
-    // Imprimir
-    char message1[256];
-    snprintf(message1, sizeof(message1), "Respuesta de Gotham: %s", response);
-    printToConsole(message1);
-
-    if (response.type != 0x10)
-    {
-        printError("Invalid response type from Gotham.\n");
-        free(response.data);
-        return -1;
-    }
-
-    // Processar la resposta
-    if (strcmp(response.data, "DISTORT_KO") == 0)
-    {
-        printError("No workers available or invalid media type.\n");
-        free(response.data);
-        return -1;
-    }
-
-    // Obtenir IP i port del worker des de la resposta
-    char *workerIP = strtok(response.data, "&");
-    char *workerPortStr = strtok(NULL, "&");
-    int workerPort = atoi(workerPortStr);
-
-    printToConsole("Worker details received from Gotham:\n");
-    printf("IP: %s, Port: %d\n", workerIP, workerPort);
-
-    // Connectar a Harley i fer la distorsió
-    connectToHarleyAndDisconnect(workerIP, workerPort);
-
-    free(response.data);
-    return 0; // Èxit
-}
