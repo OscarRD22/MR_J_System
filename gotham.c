@@ -162,10 +162,14 @@ void releaseWorker(const char *ip, int port)
  * @param extension Extensión del archivo.
  * @return const char* Tipo de Worker correspondiente a la extensión, o NULL si no se reconoce.
  */
-const char *getWorkerTypeByExtension(const char *extension) {
-    if (strcasecmp(extension, "wav") == 0 || strcasecmp(extension, "png") == 0 || strcasecmp(extension, "jpg") == 0) {
+const char *getWorkerTypeByExtension(const char *extension)
+{
+    if (strcasecmp(extension, "wav") == 0 || strcasecmp(extension, "png") == 0 || strcasecmp(extension, "jpg") == 0)
+    {
         return "Harley";
-    } else if (strcasecmp(extension, "txt") == 0) {
+    }
+    else if (strcasecmp(extension, "txt") == 0)
+    {
         return "Enigma";
     }
     return NULL; // Tipo desconocido
@@ -202,6 +206,7 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 //---------------------------------- U S E R ------------------------------------
+
 /**
  * @brief Maneja una petición de distorsión.
  *
@@ -230,13 +235,13 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
         return;
     }
 
-      printf("Determined Worker Type: %s\n", workerType);
+    printf("Determined Worker Type: %s\n", workerType);
 
     // Buscar un Worker disponible del tipo requerido
     printToConsole("Searching for an available worker...\n");
     Worker *worker = getAvailableWorkerByType(workerType);
 
-  if (!worker)
+    if (!worker)
     {
         printError("No hay trabajadores disponibles para el tipo solicitado.\n");
 
@@ -257,19 +262,24 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
     successResponse.dataLength = strlen(responseData);
     successResponse.data = strdup(responseData);
     successResponse.timestamp = (unsigned int)time(NULL);
-    successResponse.checksum = calculateChecksum(successResponse.data, successResponse.dataLength);
+    successResponse.checksum = calculateChecksum(responseData, strlen(responseData));
 
     printToConsole("Sending worker details to Fleck...\n");
+
+    // Imprimir el contenido de successResponse.data
+    char message[256];
+    snprintf(message, sizeof(message), "Data que envia Gotham a Fleck: %s", successResponse.data);
+    printToConsole(message);
+
     // Enviar respuesta al cliente con la información del Worker
     sendSocketMessage(clientSocketFD, successResponse);
+
 
     // Liberar memoria y marcar al Worker como ocupado
     free(successResponse.data);
     releaseWorker(worker->ip, worker->port);
-    printToConsole("Distortion request processed successfully.\n");
-
+    printToConsole("\nDistortion request processed successfully.\n");
 }
-
 
 /**
  * @brief Escucha conexiones entrantes de Fleck y redirige las solicitudes a los workers.
@@ -300,7 +310,7 @@ void *listenToFleck()
     while (1)
     {
 
-        read_set = master_set; // Copiar el conjunto maestro para `select()`
+        read_set = master_set; // Copiar el conjunto maestro para select()
 
         // Esperar actividad en los descriptores de archivo
         int activity = select(max_fd + 1, &read_set, NULL, NULL, NULL);
@@ -337,6 +347,7 @@ void *listenToFleck()
                 {
                     // Socket existente - recibir mensaje
                     SocketMessage receivedMessage = getSocketMessage(fd);
+
                     if (receivedMessage.data == NULL)
                     {
                         printToConsole("Error al recibir datos. Cerrando conexión...\n");
@@ -370,13 +381,13 @@ void *listenToFleck()
                         break;
 
                     case 0x10: // Petición de distorsión
-                        printToConsole("Processing distortion request...\n");
+                        printToConsole("Processing DISTORT request...\n");
                         handleDistortRequest(receivedMessage, fd);
                         break;
 
                     case 0x11: // Solicitud de reasignación de Worker
                         printToConsole("Processing reassignment request...\n");
-                        handleDistortRequest(receivedMessage, fd);
+                        //handleDistortRequest(receivedMessage, fd);
                         break;
 
                     case 0x07: // Desconexión
@@ -419,6 +430,24 @@ void *listenToFleck()
 
 //---------------------------------- W O R K E R S ------------------------------------
 /**
+ * @brief Asigna un worker primario para Harley o Enigma si no existen.
+ */
+void assignPrimaryWorker(Worker *worker)
+{
+    // No es media ha de ser Harley
+    if (strcmp(worker->workerType, "Media") == 0 && primaryHarley == NULL)
+    {
+        primaryHarley = worker;
+        printToConsole("Primary Harley assigned.\n");
+    }
+    else if (strcmp(worker->workerType, "Text") == 0 && primaryEnigma == NULL)
+    {
+        primaryEnigma = worker;
+        printToConsole("Primary Enigma assigned.\n");
+    }
+}
+
+/**
  * @brief Registra un nuevo worker en la lista global.
  *
  * @param workerType Tipo de worker recibido (Media o Text, que se mapeará a Harley o Enigma).
@@ -446,7 +475,7 @@ void registerWorker(const char *workerType, const char *ip, int port)
         return;
     }
 
-// Validar que los campos no estén vacíos
+    // Validar que los campos no estén vacíos
     if (ip == NULL || strlen(ip) == 0 || port <= 0)
     {
         printError("Datos del worker incompletos. Ignorando registro.");
@@ -454,18 +483,18 @@ void registerWorker(const char *workerType, const char *ip, int port)
         return;
     }
 
- /* 
-    Evitar duplicados
-    for (int i = 0; i < workerCount; i++)
-    {
-        if (strcmp(workers[i].ip, ip) == 0 && workers[i].port == port)
-        {
-            printError("El worker ya está registrado. Ignorando registro.");
-            pthread_mutex_unlock(&workersMutex);
-            return;
-        }
-    }
-*/
+    /*
+       Evitar duplicados
+       for (int i = 0; i < workerCount; i++)
+       {
+           if (strcmp(workers[i].ip, ip) == 0 && workers[i].port == port)
+           {
+               printError("El worker ya está registrado. Ignorando registro.");
+               pthread_mutex_unlock(&workersMutex);
+               return;
+           }
+       }
+   */
 
     // Registrar nuevo worker si hay espacio
     if (workerCount < MAX_WORKERS)
@@ -479,7 +508,8 @@ void registerWorker(const char *workerType, const char *ip, int port)
         char message[256];
         snprintf(message, sizeof(message), "Nuevo worker registrado: %s, IP: %s, Puerto: %d\n", mappedType, ip, port);
         printToConsole(message);
-
+        // Asignar Worker primario si no existe uno
+        assignPrimaryWorker(&workers[workerCount - 1]);
         // Imprimir la cantidad de workers registrados
         snprintf(message, sizeof(message), "Cantidad de workers registrados: %d\n", workerCount);
         printToConsole(message);
@@ -490,24 +520,6 @@ void registerWorker(const char *workerType, const char *ip, int port)
     }
 
     pthread_mutex_unlock(&workersMutex);
-}
-
-/**
- * @brief Asigna un worker primario para Harley o Enigma si no existen.
- */
-void assignPrimaryWorker(Worker *worker)
-{
-    // No es media ha de ser Harley
-    if (strcmp(worker->workerType, "Media") == 0 && primaryHarley == NULL)
-    {
-        primaryHarley = worker;
-        printToConsole("Primary Harley assigned.\n");
-    }
-    else if (strcmp(worker->workerType, "Text") == 0 && primaryEnigma == NULL)
-    {
-        primaryEnigma = worker;
-        printToConsole("Primary Enigma assigned.\n");
-    }
 }
 
 /**
@@ -555,6 +567,7 @@ void *listenToDistorsionWorkers()
         {
             int port = atoi(portStr); // Convertir el puerto a entero
             registerWorker(workerType, ip, port);
+
             // Asignar Worker primario si no hay ninguno
             Worker *worker = &workers[workerCount - 1];
             assignPrimaryWorker(worker);

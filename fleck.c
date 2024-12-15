@@ -11,6 +11,12 @@
 #include "utils/utils_fleck.h"
 
 // Osar.romero - Marc.marza
+// Variables globales para el progreso de distorsión
+typedef struct {
+    char filename[256];
+    int progress; // Porcentaje completado (0-100)
+} DistortionProgress;
+
 
 extern int gothamSocketFD, distorsionSocketFD;
 // This is the client
@@ -19,6 +25,8 @@ char *command;
 //int DISTORSION = FALSE;
 int iSConnected = FALSE;
 //int finishedDistortion = FALSE; // Indica si la última distorsión terminó con éxito
+int distortionCount = 0;
+DistortionProgress distortions[10]; // Máximo 10 distorsiones simultáneas
 
 /**
  * @brief Saves the information of the Fleck file into the Fleck struct
@@ -111,56 +119,28 @@ void initalSetup(int argc)
  */
 void clearAll()
 {
-    // Enviar mensaje de desconexión a Gotham si está conectado
     if (iSConnected)
     {
         printToConsole("Disconnecting from Mr. J System...\n");
-        connectToGotham(TRUE); // Envía la solicitud de desconexión
+        connectToGotham(TRUE);
         iSConnected = FALSE;
     }
 
-    // Liberar recursos en uso
     if (command)
     {
         free(command);
         command = NULL;
     }
 
-    // Cerrar el socket si está abierto
-    if (gothamSocketFD > 0)
-    {
-        close(gothamSocketFD);
-        gothamSocketFD = -1;
-    }
-
-    // Liberar cualquier otro recurso asociado a Fleck
+    closeFds();
     freeMemory();
 
     printToConsole("All resources have been cleared.\n");
 }
 
-/**
- * @brief Comprueba el estado de las distorsiones en curso o finalizadas.
- 
-void checkStatus()
-{
-    if (DISTORSION == TRUE)
-    {
-        printToConsole("A distortion process is currently ongoing.\n");
-    }
-    else
-    {
-        if (finishedDistortion == TRUE)
-        {
-            printToConsole("The last distortion has finished successfully.\n");
-        }
-        else
-        {
-            printError("You have no ongoing or finished distortions.\n");
-        }
-    }
-}
-*/
+
+
+
 
 void commandInterpretter()
 {

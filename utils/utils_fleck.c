@@ -3,13 +3,13 @@
 #include "stdio.h"
 #include "utils_connect.h"
 #include <time.h>
+#include "sys/stat.h"
 #include "../struct_definitions.h"
 
 #define MAX_FILES 100
 
 // Osar.romero - Marc.marza
 extern Fleck fleck;
-
 int gothamSocketFD, distorsionSocketFD;
 int isDistorsionConnected = FALSE;
 int DISTORSION = FALSE;         // Indica si hay un proceso de distorsión en curso
@@ -220,178 +220,154 @@ int connectToGotham(int isExit)
 }
 
 /**
- * @brief Envía un archivo al Worker en tramas de 256 bytes.
- * @param workerSocketFD Socket del Worker.
- * @param filename Nombre del archivo a enviar.
+ * @brief Conecta a Harley con los datos recibidos de Gotham (IP, puerto) y se desconecta al finalizar.
+ * @param workerIP La IP del worker (Harley) proporcionada por Gotham.
+ * @param workerPort El puerto del worker (Harley) proporcionado por Gotham.
  */
-void sendFileToWorker(int workerSocketFD, const char *filename)
+void connectToHarleyAndDisconnect(const char *workerIP, int workerPort)
 {
-    FILE *file = fopen(filename, "rb");
-    if (!file)
+    // Crear y conectar el socket al worker Harley
+    int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
+    if (workerSocketFD < 0)
     {
-        printError("Failed to open file for reading.\n");
+        printError("Failed to connect to Worker (Harley).\n");
         return;
     }
 
-    printToConsole("Starting file transfer to Worker...\n");
-    char buffer[256];
-    size_t bytesRead;
+    printToConsole("Connected to Harley worker successfully.\n");
 
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    // Simular operación de distorsión
+    // Puedes enviar mensajes simples para demostrar la interacción
+    SocketMessage initialMessage = {
+        .type = 0x03, // Tipo de mensaje para iniciar conexión con Harley
+        .dataLength = 0,
+        .data = NULL,
+        .timestamp = (unsigned int)time(NULL),
+        .checksum = 0};
+
+    sendSocketMessage(workerSocketFD, initialMessage);
+
+    // Esperar respuesta de Harley
+    SocketMessage response = getSocketMessage(workerSocketFD);
+    if (response.type == 0x03 && response.dataLength == 0)
     {
-        SocketMessage fileMessage;
-        fileMessage.type = 0x05;
-        fileMessage.dataLength = bytesRead;
-        fileMessage.data = malloc(bytesRead);
-        memcpy(fileMessage.data, buffer, bytesRead);
-        fileMessage.timestamp = (unsigned int)time(NULL);
-        fileMessage.checksum = calculateChecksum(fileMessage.data, fileMessage.dataLength);
-
-        sendSocketMessage(workerSocketFD, fileMessage);
-
-        free(fileMessage.data);
+        printToConsole("Harley confirmed connection and ready to operate.\n");
+    }
+    else
+    {
+        printError("Unexpected response from Harley. Disconnecting...\n");
     }
 
-    fclose(file);
-    printToConsole("File transfer completed successfully.\n");
+    free(response.data);
+
+    // Notificar desconexión a Harley
+    SocketMessage disconnectMessage = {
+        .type = 0x07, // Tipo de mensaje para desconexión
+        .dataLength = strlen(fleck.username),
+        .data = strdup(fleck.username), // Enviamos el username como identificador
+        .timestamp = (unsigned int)time(NULL),
+        .checksum = calculateChecksum(fleck.username, strlen(fleck.username))};
+
+    sendSocketMessage(workerSocketFD, disconnectMessage);
+    free(disconnectMessage.data);
+
+    printToConsole("Disconnected from Harley worker successfully.\n");
+
+    // Cerrar el socket
+    close(workerSocketFD);
 }
 
 /**
- * @brief Maneja el comando DISTORT enviando la solicitud a Gotham y conectándose al Worker.
- * @param filename Nombre del archivo a distorsionar.
- * @param factor Factor de distorsión.
+ * @brief Clears all resources and disconnects from Gotham.
  */
-void handleDistortCommand(const char *filename, const char *factor)
+void handleDistortCommand(const char *fileName, const char *factor)
 {
-    DISTORSION = TRUE; // Iniciar proceso de distorsión
-
-// Construir la ruta completa al archivo
-    char fullPath[512];
-    snprintf(fullPath, sizeof(fullPath), "arthur/%s", filename);
-
-    // Verificar si el archivo es accesible
-    if (access(fullPath, R_OK) != 0)
-    {
-        char errorMessage[256];
-        snprintf(errorMessage, sizeof(errorMessage), "File '%s' does not exist or cannot be accessed. Aborting distortion command.\n", fullPath);
-        printError(errorMessage);
-        DISTORSION = FALSE;
-        return;
-    }
-
-    if (access(fullPath, R_OK) == 0)
-{
-    char successMessage[256];
-    snprintf(successMessage, sizeof(successMessage), "File '%s' is accessible.\n", fullPath);
-    printToConsole(successMessage);
-}
-
-    char *extension = strrchr(filename, '.');
+    char *extension = strrchr(fileName, '.');
     if (!extension || strlen(extension) < 2)
     {
         printError("Invalid file type. Please provide a valid file.\n");
         return;
     }
 
-    // Construir la trama para Gotham
-    char *dataBuffer = NULL;
-    asprintf(&dataBuffer, "%s&%s", extension + 1, filename);
-
-    SocketMessage distortRequest;
-    distortRequest.type = 0x10;
-    distortRequest.dataLength = strlen(dataBuffer);
-    distortRequest.data = strdup(dataBuffer);
-    distortRequest.timestamp = (unsigned int)time(NULL);
-    distortRequest.checksum = calculateChecksum(distortRequest.data, distortRequest.dataLength);
-
-    // Enviar solicitud a Gotham
-    sendSocketMessage(gothamSocketFD, distortRequest);
-    free(dataBuffer);
-    free(distortRequest.data);
-
-    printToConsole("Distortion request sent to Gotham. Waiting for response...\n");
-
-    // Recibir respuesta de Gotham
-    SocketMessage response = getSocketMessage(gothamSocketFD);
-
-    printToConsole("Gotham me ha respondido\n");
-
-    if (response.type == 0x10)
+    // Treure l'extensió (sense el punt inicial)
+    char *mediaType = extension + 1;
+    printf("Estoy dentro de handleDistortCommand - MediaType: %s\n", mediaType);
+    // Enviar petició a Gotham
+    if (sendDistortRequestToGotham(mediaType, fileName) == 0)
     {
-        if (strcmp(response.data, "DISTORT_KO") == 0)
-        {
-            printError("Gotham could not process the distortion request. No workers available.\n");
-            DISTORSION = FALSE;
-        }
-        else
-        {
-            char *workerIP = strtok(response.data, "&");
-            char *workerPortStr = strtok(NULL, "&");
-
-            if (workerIP && workerPortStr)
-            {
-                int workerPort = atoi(workerPortStr);
-                printToConsole("Connecting to Worker...\n");
-
-                int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
-                if (workerSocketFD < 0)
-                {
-                    printError("Failed to connect to Worker.\n");
-                    DISTORSION = FALSE;
-                }
-                else
-                {
-                    printToConsole("Worker connected successfully. Sending distortion request...\n");
-
-                    // Enviar solicitud al Worker
-                    char *workerRequestData = NULL;
-                    asprintf(&workerRequestData, "%s&%s&%s", fleck.username, filename, factor);
-
-                    SocketMessage workerRequest;
-                    workerRequest.type = 0x03;
-                    workerRequest.dataLength = strlen(workerRequestData);
-                    workerRequest.data = strdup(workerRequestData);
-                    workerRequest.timestamp = (unsigned int)time(NULL);
-                    workerRequest.checksum = calculateChecksum(workerRequest.data, workerRequest.dataLength);
-
-                    sendSocketMessage(workerSocketFD, workerRequest);
-                    free(workerRequest.data);
-                    free(workerRequestData);
-
-                    // Recibir confirmación del Worker
-                    SocketMessage workerResponse = getSocketMessage(workerSocketFD);
-
-                    if (workerResponse.type == 0x03 && workerResponse.dataLength == 0)
-                    {
-                        printToConsole("Worker ready to distort the file.\n");
-
-                        // Enviar el archivo al Worker
-                        sendFileToWorker(workerSocketFD, filename);
-                        DISTORSION = FALSE;
-                        finishedDistortion = TRUE;
-                    }
-                    else
-                    {
-                        printError("Worker failed to start distortion.\n");
-                        DISTORSION = FALSE;
-                    }
-
-                    free(workerResponse.data);
-                    close(workerSocketFD);
-                }
-            }
-            else
-            {
-                printError("Invalid response format from Gotham.\n");
-                DISTORSION = FALSE;
-            }
-        }
+        printToConsole("Distortion process completed successfully.\n");
     }
     else
     {
-        printError("Invalid response type from Gotham.\n");
-        DISTORSION = FALSE;
+        printError("Failed to process distortion request.\n");
+    }
+}
+
+/**
+ * @brief Envia una petició de distorsió a Gotham i processa la seva resposta.
+ * @param mediaType El tipus de media (extensió del fitxer, com "png", "wav").
+ * @param fileName El nom del fitxer a distorsionar.
+ * @return 0 si Gotham retorna un worker disponible, -1 en cas d'error o "DISTORT_KO".
+ */
+int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
+{
+    // Construir el missatge per enviar a Gotham
+    char *dataBuffer = NULL;
+    if (asprintf(&dataBuffer, "%s&%s", mediaType, fileName) < 0)
+    {
+        printError("Failed to allocate memory for distortion request.\n");
+        return -1;
     }
 
+    SocketMessage request;
+    request.type = 0x10; // Tipus de petició de distorsió
+    request.dataLength = strlen(dataBuffer);
+    request.data = dataBuffer;
+    request.timestamp = (unsigned int)time(NULL);
+    request.checksum = calculateChecksum(dataBuffer, strlen(dataBuffer));
+
+    // Imprimir
+    char message[256];
+    snprintf(message, sizeof(message), "Tipus de petició de distorsió %s", request.data);
+    printToConsole(message);
+    // Enviar missatge a Gotham
+    sendSocketMessage(gothamSocketFD, request);
+    free(request.data);
+    printf("\nMensaje a Gotham enviado\n");
+    // Esperar resposta de Gotham
+    //! Creo que Gotham si envia bien ip y puerto no se porque falla aqui al recibir el mensaje
+    SocketMessage response = getSocketMessage(gothamSocketFD);
+    // Imprimir
+    char message1[256];
+    snprintf(message1, sizeof(message1), "Respuesta de Gotham: %s", response);
+    printToConsole(message1);
+
+    if (response.type != 0x10)
+    {
+        printError("Invalid response type from Gotham.\n");
+        free(response.data);
+        return -1;
+    }
+
+    // Processar la resposta
+    if (strcmp(response.data, "DISTORT_KO") == 0)
+    {
+        printError("No workers available or invalid media type.\n");
+        free(response.data);
+        return -1;
+    }
+
+    // Obtenir IP i port del worker des de la resposta
+    char *workerIP = strtok(response.data, "&");
+    char *workerPortStr = strtok(NULL, "&");
+    int workerPort = atoi(workerPortStr);
+
+    printToConsole("Worker details received from Gotham:\n");
+    printf("IP: %s, Port: %d\n", workerIP, workerPort);
+
+    // Connectar a Harley i fer la distorsió
+    connectToHarleyAndDisconnect(workerIP, workerPort);
+
     free(response.data);
+    return 0; // Èxit
 }
