@@ -248,9 +248,6 @@ void initalSetup(int argc)
 void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
 {
 
-   
-
-
     char *mediaType = strtok(receivedMessage.data, "&");
     char *fileName = strtok(NULL, "&");
 
@@ -289,7 +286,6 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
     }
     printf("Found available worker: IP = %s, Port = %d\n", worker->ip, worker->port);
 
- 
     // Construir la respuesta con la información del Worker disponible
     char responseData[256];
     snprintf(responseData, sizeof(responseData), "%s&%d", worker->ip, worker->port);
@@ -517,7 +513,6 @@ void reassignPrimaryWorker(const char *workerType)
     pthread_mutex_unlock(&workersMutex);
 }
 
-
 /**
  * @brief Registra un nuevo worker en la lista global.
  *
@@ -527,12 +522,12 @@ void reassignPrimaryWorker(const char *workerType)
  */
 void registerWorker(const char *workerType, const char *ip, int port)
 {
-    // pthread_mutex_lock(&workersMutex);
+    pthread_mutex_lock(&workersMutex);
 
     if (workerCount >= MAX_WORKERS)
     {
         printError("No se pueden registrar más workers. Límite alcanzado.");
-        // pthread_mutex_unlock(&workersMutex);
+        pthread_mutex_unlock(&workersMutex);
         return;
     }
 
@@ -547,10 +542,10 @@ void registerWorker(const char *workerType, const char *ip, int port)
     snprintf(message, sizeof(message), "Nuevo worker registrado: %s, IP: %s, Puerto: %d, Disponible-1si-0no:%d \n", workerType, ip, port, workers[workerCount - 1].available);
     printToConsole(message);
 
+    pthread_mutex_unlock(&workersMutex);
+
     // Intentar asignar como worker primario
     assignPrimaryWorker(&workers[workerCount - 1]);
-
-    // pthread_mutex_unlock(&workersMutex);
 }
 
 /**
@@ -602,31 +597,27 @@ void *listenToDistorsionWorkers()
             registerWorker(workerType, ip, port);
 
 
+            // Mensaje de nuevo worker conectado
+            const char *mappedType = NULL;
 
+            if (strcasecmp(workerType, "Media") == 0)
+            {
+                mappedType = "Harley";
+            }
+            else if (strcasecmp(workerType, "Text") == 0)
+            {
+                mappedType = "Enigma";
+            }
+            else
+            {
+                printError("Tipo de worker inválido. Ignorando registro.");
+                pthread_mutex_unlock(&workersMutex);
+                return NULL;
+            }
 
-  // Mensaje de nuevo worker conectado
-    const char *mappedType = NULL;
-
-    if (strcasecmp(workerType, "Media") == 0)
-    {
-        mappedType = "Harley";
-    }
-    else if (strcasecmp(workerType, "Text") == 0)
-    {
-        mappedType = "Enigma";
-    }
-    else
-    {
-        printError("Tipo de worker inválido. Ignorando registro.");
-        pthread_mutex_unlock(&workersMutex);
-        return NULL;
-    }
-
-    char message[256];
-    snprintf(message, sizeof(message), "NEW %s worker connected - ready to distort!\n", mappedType);
-    printToConsole(message);
-
-
+            char message[256];
+            snprintf(message, sizeof(message), "NEW %s worker connected - ready to distort!\n", mappedType);
+            printToConsole(message);
 
             // Responder con una trama OK
             SocketMessage response;
@@ -637,7 +628,7 @@ void *listenToDistorsionWorkers()
             response.checksum = 0;
 
             sendSocketMessage(workerSocketFD, response);
-            printToConsole("Worker registered successfully!!!!!!!!\n");
+            //printToConsole("Worker registered successfully!!!!!!!!\n");
 
             // Escuchar al worker para desconexión
             fd_set read_fds;
@@ -653,7 +644,7 @@ void *listenToDistorsionWorkers()
 
                 if (activity == 0)
                 {
-                    
+
                     // Timeout, el worker sigue activo, no hacer nada más
                     continue;
                 }

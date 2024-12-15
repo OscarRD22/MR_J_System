@@ -83,7 +83,6 @@ void initalSetup(int argc)
     signal(SIGINT, closeProgramSignal);
 }
 
-
 int connectHarleyToGotham()
 {
     // Usar la variable global gothamSocketFD
@@ -110,7 +109,6 @@ int connectHarleyToGotham()
         .checksum = calculateChecksum(messageBuffer, strlen(messageBuffer))};
 
     free(messageBuffer);
-    printToConsole("Enviando mensaje de registro a Gotham...");
 
     sendSocketMessage(gothamSocketFD, messageToSend);
     free(messageToSend.data);
@@ -125,11 +123,10 @@ int connectHarleyToGotham()
     }
 
     free(response.data);
-    printToConsole("Connected to Gotham successfully.\n");
+    // printToConsole("Connected to Gotham successfully.\n");
 
     return 0; // Éxito
 }
-
 
 void handleMessageFromFleck(SocketMessage message)
 {
@@ -176,22 +173,22 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-    printToConsole("Intentando conectar Harley a Gotham...");
-
+        printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n");
+        printToConsole("\nWaiting for connections...\n");
         // Intentar conexión a Gotham
         if (connectHarleyToGotham() != 0)
         {
             printError("Failed to connect to Gotham. Retrying in 5 seconds...\n");
-            sleep(5);
+            sleep(2);
             continue;
         }
 
-        printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n");
+        // printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n");
 
         // Mantener la conexión y procesar mensajes
         while (1)
         {
-            printToConsole("Waiting for connections...\n");
+            // printToConsole("Waiting for connections...\n");
             SocketMessage message = getSocketMessage(gothamSocketFD);
 
             // Simulación: Espera un mensaje desde Gotham/Fleck
@@ -211,4 +208,3 @@ int main(int argc, char *argv[])
     closeProgramSignal();
     return 0;
 }
-
