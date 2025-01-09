@@ -91,48 +91,37 @@ void freeMemory()
 }
 
 /**
- * @brief Busca un Worker disponible por tipo.
- *
- * @param workerType Tipo de Worker que se busca.
- * @return Worker* Un puntero al Worker disponible, o NULL si no hay disponibles.
+ * @brief Closes the program correctly cleaning the memory and closing the file descriptors
  */
-Worker *getAvailableWorkerByType(const char *workerType)
+void closeProgramSignal()
 {
-    if (workerType == NULL)
-    {
-        printError("Worker type is NULL. Cannot search for workers.\n");
-        return NULL;
-    }
-
-    pthread_mutex_lock(&workersMutex);
+    printToConsole("Gotham shutting down...\n");
 
     for (int i = 0; i < workerCount; i++)
     {
-        // Verificar si el Worker está disponible y coincide con el tipo solicitado
-        if (workers[i].available == 1 && strcmp(workers[i].workerType, workerType) == 0)
-        {
-            workers[i].available = 0; // Marcar como ocupado
-            pthread_mutex_unlock(&workersMutex);
-
-            // Log de depuración
-            char message[256];
-            snprintf(message, sizeof(message), "Assigned Worker: %s, IP: %s, Port: %d\n",
-                     workers[i].workerType, workers[i].ip, workers[i].port);
-            printToConsole(message);
-
-            return &workers[i];
-        }
+        releaseWorker(workers[i].ip, workers[i].port);
     }
 
-    pthread_mutex_unlock(&workersMutex);
-
-    // Log de que no hay Workers disponibles
-    char message[256];
-    snprintf(message, sizeof(message), "No available workers of type: %s\n", workerType);
-    printToConsole(message);
-
-    return NULL; // No hay Workers disponibles
+    freeMemory();
+    closeFds();
+    exit(0);
 }
+
+/**
+ * @brief Checks if the number of arguments is correct
+ * @param argc The number of arguments
+ */
+void initalSetup(int argc)
+{
+    if (argc < 2)
+    {
+        printError("ERROR: Not enough arguments provided\n");
+        exit(1);
+    }
+    signal(SIGINT, closeProgramSignal);
+}
+
+// toDo------------------------------------------------------- U S E R ---------------------------------------------------------------------
 
 /**
  * @brief Marca un worker como ocupado en la lista de workers.
@@ -166,78 +155,48 @@ void busyWorker(const char *ip, int port)
 }
 
 /**
- * @brief Libera un worker para que vuelva a estar disponible.
+ * @brief Busca un Worker disponible por tipo.
  *
- * @param ip Dirección IP del worker.
- * @param port Puerto del worker.
+ * @param workerType Tipo de Worker que se busca.
+ * @return Worker* Un puntero al Worker disponible, o NULL si no hay disponibles.
  */
-void releaseWorker(const char *ip, int port)
+Worker *getAvailableWorkerByType(const char *workerType)
 {
+    if (workerType == NULL)
+    {
+        printError("Worker type is NULL. Cannot search for workers.\n");
+        return NULL;
+    }
+
     pthread_mutex_lock(&workersMutex);
+    printToConsole("Debugging Worker List:\n");
 
     for (int i = 0; i < workerCount; i++)
     {
-        if (strcmp(workers[i].ip, ip) == 0 && workers[i].port == port)
+        char debugMessage[256];
+        snprintf(debugMessage, sizeof(debugMessage),
+                 "Worker[%d]: Type=%s, IP=%s, Port=%d, Available=%d\n",
+                 i, workers[i].workerType, workers[i].ip, workers[i].port, workers[i].available);
+        printToConsole(debugMessage);
+        // Verificar si el Worker está disponible y coincide con el tipo solicitado
+        if (workers[i].available == 1 && strcmp(workers[i].workerType, workerType) == 0)
         {
-            workers[i].available = 1; // Marcar como disponible
-            printToConsole("Worker marked as available.\n");
-            break;
+            workers[i].available = 0; // Marcar como ocupado
+            pthread_mutex_unlock(&workersMutex);
+
+            return &workers[i];
         }
     }
 
     pthread_mutex_unlock(&workersMutex);
+
+    // Log de que no hay Workers disponibles
+    char message[256];
+    snprintf(message, sizeof(message), "No available workers of type: %s\n", workerType);
+    printToConsole(message);
+
+    return NULL; // No hay Workers disponibles
 }
-
-/**
- * @brief Obtiene el tipo de Worker a partir de la extensión de un archivo.
- *
- * @param extension Extensión del archivo.
- * @return const char* Tipo de Worker correspondiente a la extensión, o NULL si no se reconoce.
- */
-const char *getWorkerTypeByExtension(const char *extension)
-{
-    if (strcasecmp(extension, "wav") == 0 || strcasecmp(extension, "png") == 0 || strcasecmp(extension, "jpg") == 0)
-    {
-        return "Harley";
-    }
-    else if (strcasecmp(extension, "txt") == 0)
-    {
-        return "Enigma";
-    }
-    return NULL; // Tipo desconocido
-}
-
-/**
- * @brief Closes the program correctly cleaning the memory and closing the file descriptors
- */
-void closeProgramSignal()
-{
-    printToConsole("Gotham shutting down...\n");
-
-    for (int i = 0; i < workerCount; i++)
-    {
-        releaseWorker(workers[i].ip, workers[i].port);
-    }
-
-    freeMemory();
-    closeFds();
-    exit(0);
-}
-
-/**
- * @brief Checks if the number of arguments is correct
- * @param argc The number of arguments
- */
-void initalSetup(int argc)
-{
-    if (argc < 2)
-    {
-        printError("ERROR: Not enough arguments provided\n");
-        exit(1);
-    }
-    signal(SIGINT, closeProgramSignal);
-}
-//---------------------------------- U S E R ------------------------------------
 
 /**
  * @brief Maneja una petición de distorsión.
@@ -257,23 +216,12 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
         return;
     }
 
-    const char *workerType = getWorkerTypeByExtension(mediaType);
-    if (!workerType)
-    {
-        printError("Unsupported file type for distortion.\n");
-        // Enviar respuesta de error al cliente
-        SocketMessage errorResponse = {0x10, strlen("MEDIA_KO"), strdup("MEDIA_KO"), (unsigned int)time(NULL), 0};
-        sendSocketMessage(clientSocketFD, errorResponse);
-        free(errorResponse.data);
-        return;
-    }
-
-    printf("Determined Worker Type: %s\n", workerType);
+    //!------mapping
 
     // Buscar un Worker disponible del tipo requerido
     printToConsole("Searching for an available worker...\n");
-    Worker *worker = getAvailableWorkerByType(workerType);
-    //!--------------------
+    Worker *worker = getAvailableWorkerByType(mediaType);
+
     if (!worker)
     {
         printError("No hay trabajadores disponibles para el tipo solicitado.\n");
@@ -285,8 +233,10 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
         return;
     }
     printf("Found available worker: IP = %s, Port = %d\n", worker->ip, worker->port);
-
-    // Construir la respuesta con la información del Worker disponible
+    // Marcar el worker como ocupado**
+    busyWorker(worker->ip, worker->port);
+  
+    //  Construir la respuesta con la información del Worker disponible
     char responseData[256];
     snprintf(responseData, sizeof(responseData), "%s&%d", worker->ip, worker->port);
 
@@ -296,8 +246,6 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
     successResponse.data = strdup(responseData);
     successResponse.timestamp = (unsigned int)time(NULL);
     successResponse.checksum = calculateChecksum(responseData, strlen(responseData));
-
-    printToConsole("Sending worker details to Fleck...\n");
 
     // Imprimir el contenido de successResponse.data
     char message[256];
@@ -309,8 +257,6 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
 
     // Liberar memoria y marcar al Worker como ocupado
     free(successResponse.data);
-
-    busyWorker(worker->ip, worker->port);
     printToConsole("\nDistortion request processed successfully.\n");
 }
 
@@ -329,7 +275,7 @@ void *listenToFleck()
         printToConsole("Error creando socket de Fleck\n");
         pthread_exit(NULL);
     }
-    printToConsole("Waiting for connections...\n\n");
+    printToConsole("Waiting for connections...............\n\n");
 
     // Inicializar conjuntos de descriptores de archivo
     fd_set master_set, read_set;
@@ -451,30 +397,31 @@ void *listenToFleck()
     pthread_exit(NULL);
 }
 
-//---------------------------------- U S E R ------------------------------------
+// toDo------------------------------------------------------- U S E R ---------------------------------------------------------------------
 
-//---------------------------------- W O R K E R S ------------------------------------
+// toDo-----------------------------------------------------W O R K E R S ------------------------------------------------------------------
+
 /**
- * @brief Asigna un worker primario si no existe uno actualmente.
+ * @brief Libera un worker para que vuelva a estar disponible.
  *
- * @param worker Puntero al worker recién conectado.
+ * @param ip Dirección IP del worker.
+ * @param port Puerto del worker.
  */
-void assignPrimaryWorker(Worker *worker)
+void releaseWorker(const char *ip, int port)
 {
-    pthread_mutex_lock(&workersMutex); // Bloquear acceso a la lista de workers
+    pthread_mutex_lock(&workersMutex);
 
-    if (strcmp(worker->workerType, "Media") == 0 && primaryHarley == NULL)
+    for (int i = 0; i < workerCount; i++)
     {
-        primaryHarley = worker;
-        printToConsole("Primary Harley assigned.\n");
-    }
-    else if (strcmp(worker->workerType, "Text") == 0 && primaryEnigma == NULL)
-    {
-        primaryEnigma = worker;
-        printToConsole("Primary Enigma assigned.\n");
+        if (strcmp(workers[i].ip, ip) == 0 && workers[i].port == port)
+        {
+            workers[i].available = 1; // Marcar como disponible
+            printToConsole("Worker marked as available.\n");
+            break;
+        }
     }
 
-    pthread_mutex_unlock(&workersMutex); // Desbloquear acceso
+    pthread_mutex_unlock(&workersMutex);
 }
 
 /**
@@ -500,17 +447,53 @@ void reassignPrimaryWorker(const char *workerType)
                 primaryEnigma = &workers[i];
                 printToConsole("Primary Enigma reassigned.\n");
             }
-
             pthread_mutex_unlock(&workersMutex);
             return;
         }
     }
 
-    char message[128];
-    snprintf(message, sizeof(message), "No available workers to reassign for type: %s", workerType);
-    printToConsole(message);
+    // Si no hay ningún worker disponible
+    if (strcmp(workerType, "Media") == 0)
+    {
+        primaryHarley = NULL;
+        printToConsole("No available Harley workers to reassign.\n");
+    }
+    else if (strcmp(workerType, "Text") == 0)
+    {
+        primaryEnigma = NULL;
+        printToConsole("No available Enigma workers to reassign.\n");
+    }
 
     pthread_mutex_unlock(&workersMutex);
+}
+
+/**
+ * @brief Asigna un worker primario si no existe uno actualmente o si el primario se ha caído.
+ *
+ * @param worker Puntero al worker recién conectado.
+ */
+void assignPrimaryWorker(Worker *worker)
+{
+    pthread_mutex_lock(&workersMutex); // Bloquear acceso a la lista de workers
+
+    if (strcmp(worker->workerType, "Harley") == 0)
+    {
+        if (primaryHarley == NULL || primaryHarley->available == 0)
+        {
+            primaryHarley = worker;
+            printToConsole("Primary Harley assigned.\n");
+        }
+    }
+    else if (strcmp(worker->workerType, "Enigma") == 0)
+    {
+        if (primaryEnigma == NULL || primaryEnigma->available == 0)
+        {
+            primaryEnigma = worker;
+            printToConsole("Primary Enigma assigned.\n");
+        }
+    }
+
+    pthread_mutex_unlock(&workersMutex); // Desbloquear acceso
 }
 
 /**
@@ -589,15 +572,35 @@ void *listenToDistorsionWorkers()
         char *ip = strtok(NULL, "&");
         char *portStr = strtok(NULL, "&");
 
+        // Mensaje de nuevo worker conectado
+        const char *mappedType = NULL;
+
+        if (strcasecmp(workerType, "Media") == 0)
+        {
+            mappedType = "Harley";
+        }
+        else if (strcasecmp(workerType, "Text") == 0)
+        {
+            mappedType = "Enigma";
+        }
+        else
+        {
+            printError("Tipo de worker inválido. Ignorando registro.");
+            free(receivedMessage.data);
+            close(workerSocketFD);
+            continue;
+        }
+
         if (workerType && ip && portStr)
         {
             int port = atoi(portStr); // Convertir el puerto a entero
 
             // Registro el worker y lo asigno como primario si no hay uno
-            registerWorker(workerType, ip, port);
+            registerWorker(mappedType, ip, port);
+            // Intentar asignar como worker primario
+            // assignPrimaryWorker(&workers[workerCount - 1]);
 
-
-            // Mensaje de nuevo worker conectado
+            /* Mensaje de nuevo worker conectado
             const char *mappedType = NULL;
 
             if (strcasecmp(workerType, "Media") == 0)
@@ -611,10 +614,11 @@ void *listenToDistorsionWorkers()
             else
             {
                 printError("Tipo de worker inválido. Ignorando registro.");
-                pthread_mutex_unlock(&workersMutex);
-                return NULL;
+                free(receivedMessage.data);
+                close(workerSocketFD);
+                continue;
             }
-
+*/
             char message[256];
             snprintf(message, sizeof(message), "NEW %s worker connected - ready to distort!\n", mappedType);
             printToConsole(message);
@@ -628,7 +632,7 @@ void *listenToDistorsionWorkers()
             response.checksum = 0;
 
             sendSocketMessage(workerSocketFD, response);
-            //printToConsole("Worker registered successfully!!!!!!!!\n");
+            // printToConsole("Worker registered successfully!!!!!!!!\n");
 
             // Escuchar al worker para desconexión
             fd_set read_fds;
@@ -712,7 +716,7 @@ void *listenToDistorsionWorkers()
     close(listenWorkerFD);
     pthread_exit(NULL);
 }
-//---------------------------------- W O R K E R S ------------------------------------
+// toDo-----------------------------------------------------W O R K E R S ------------------------------------------------------------------
 
 /**
  * @brief Main function of the Gotham server

@@ -135,11 +135,6 @@ int calculateChecksum(const char *buffer, size_t length) {
 }
 
 
-
-
-
-
-
 /**
  * @brief Creates a socket and connects it to a server
  * @param IP The IP address of the server
@@ -219,7 +214,6 @@ int createAndListenSocket(char *IP, int port)
 */
     int socketFD;
     struct sockaddr_in server;
-    // toDo Mirar que no sea bloqueante
     if ((socketFD = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printError("Error creating the socket\n");

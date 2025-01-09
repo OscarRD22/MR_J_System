@@ -12,19 +12,17 @@
 
 // Osar.romero - Marc.marza
 // Variables globales para el progreso de distorsión
-typedef struct {
+typedef struct
+{
     char filename[256];
     int progress; // Porcentaje completado (0-100)
 } DistortionProgress;
-
 
 extern int gothamSocketFD, distorsionSocketFD;
 // This is the client
 Fleck fleck;
 char *command;
-//int DISTORSION = FALSE;
 int iSConnected = FALSE;
-//int finishedDistortion = FALSE; // Indica si la última distorsión terminó con éxito
 int distortionCount = 0;
 DistortionProgress distortions[10]; // Máximo 10 distorsiones simultáneas
 
@@ -138,10 +136,7 @@ void clearAll()
     printToConsole("All resources have been cleared.\n");
 }
 
-
-
-
-
+//!----------------------------------------------------- M A I N - L O G I C ------------------------------------------------------------------
 void commandInterpretter()
 {
     int continueReading = TRUE;
@@ -220,7 +215,7 @@ void commandInterpretter()
             }
             else if (strcasecmp(subCommand, "STATUS") == 0)
             {
-                //checkStatus();
+                // checkStatus();
             }
             else
             {

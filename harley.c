@@ -128,41 +128,35 @@ int connectHarleyToGotham()
     return 0; // Éxito
 }
 
-void handleMessageFromFleck(SocketMessage message)
+void simulateDistortionProcess(int clientSocketFD)
 {
-    // Simular la recepción de una petición de distorsión
-    if (message.type == 0x05) // Tipo 0x05: Petición de distorsión
-    {
-        char *fileName = strtok(message.data, "&");
-        char *factorStr = strtok(NULL, "&");
+    printToConsole("Receiving original media/text...");
+    sleep(2); // Simula procesamiento
 
-        int factor = atoi(factorStr);
-        if (!fileName || factor <= 0)
-        {
-            printError("Invalid distortion request format.\n");
-            return;
-        }
+    printToConsole("Distorting...");
+    sleep(2); // Simula distorsión
 
-        char buffer[256];
-        snprintf(buffer, sizeof(buffer), "New request - Arthur wants to distort %s, with factor %d.", fileName, factor);
-        printToConsole(buffer);
+    printToConsole("Sending distorted data back...");
+    SocketMessage response = {
+        .type = 0x12, // Respuesta exitosa
+        .dataLength = strlen("DISTORT_OK"),
+        .data = strdup("DISTORT_OK"),
+        .timestamp = (unsigned int)time(NULL),
+        .checksum = calculateChecksum("DISTORT_OK", strlen("DISTORT_OK"))};
 
-        printToConsole("Receiving original text...");
-        sleep(1); // Simular tiempo de recepción
+    sendSocketMessage(clientSocketFD, response);
+    free(response.data);
 
-        printToConsole("Distorting...");
-        sleep(2); // Simular tiempo de procesamiento de distorsión
+    printToConsole("Distortion process completed. Disconnecting...\n");
 
-        printToConsole("Sending distorted text to Arthur...");
-        sleep(1); // Simular tiempo de envío
+    // Cerrar el socket después del proceso
+    close(clientSocketFD);
 
-        printToConsole("Distortion completed successfully!\n");
-    }
-    else
-    {
-        printToConsole("Unknown message type. Ignoring...\n");
-    }
+    // Notificar a Gotham que el worker está disponible
+    //releaseWorker(harley.gotham_ip, harley.gotham_port);
 }
+
+
 
 int main(int argc, char *argv[])
 {
@@ -192,16 +186,14 @@ int main(int argc, char *argv[])
             SocketMessage message = getSocketMessage(gothamSocketFD);
 
             // Simulación: Espera un mensaje desde Gotham/Fleck
-            if (message.type == -1 || message.data == NULL)
+            if (message.data != NULL && message.type == 0x10)
             {
-                printError("Lost connection to Gotham. Reconnecting...\n");
-                close(gothamSocketFD);
-                break; // Salir del bucle para reconectar
+                // Procesar los mensajes según el tipo
+                simulateDistortionProcess(gothamSocketFD);
+                free(message.data);
             }
 
-            // Procesar los mensajes según el tipo
-            handleMessageFromFleck(message);
-            free(message.data);
+            
         }
     }
 

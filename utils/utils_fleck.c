@@ -124,6 +124,9 @@ void listText()
         printToConsole("No text files found\n");
     }
 }
+
+//toDo----------------------------------------------------- CONNECT ------------------------------------------------------------------
+
 /**
  * @brief Connects to the Gotham server with stable connection.
  * @param isExit Indicates whether the Fleck is exiting (send disconnect to Gotham) or not (send connection request).
@@ -174,8 +177,8 @@ int connectToGotham(int isExit)
 
     // Enviar el mensaje a Gotham
     sendSocketMessage(gothamSocketFD, message);
-    //printf("Type: %d, DataLength: %d, Data: %s, Timestamp: %u, Checksum: %d\n",
-    //       message.type, message.dataLength, message.data, message.timestamp, message.checksum);
+    // printf("Type: %d, DataLength: %d, Data: %s, Timestamp: %u, Checksum: %d\n",
+    //        message.type, message.dataLength, message.data, message.timestamp, message.checksum);
 
     // Liberar el buffer del mensaje
     free(buffer);
@@ -203,9 +206,12 @@ int connectToGotham(int isExit)
     }
 
     free(response.data);
-    //close(gothamSocketFD);
+    // close(gothamSocketFD);
     return 0;
 }
+//toDo----------------------------------------------------- CONNECT ------------------------------------------------------------------
+
+//toDo----------------------------------------------------- DISTORT ------------------------------------------------------------------
 
 /**
  * @brief Conecta a Harley con los datos recibidos de Gotham (IP, puerto) y se desconecta al finalizar.
@@ -243,21 +249,21 @@ void connectToHarleyAndDisconnect(const char *workerIP, int workerPort)
     }
     else
     {
-printError("Worker disconnected unexpectedly. Notifying Gotham...\n");
+        printError("Worker disconnected unexpectedly. Notifying Gotham...\n");
 
-    // Notificar a Gotham
-    SocketMessage resumeRequest = {
-        .type = 0x11, 
-        .dataLength = strlen("RESUME_REQUEST"),
-        .data = strdup("RESUME_REQUEST"),
-        .timestamp = (unsigned int)time(NULL),
-        .checksum = calculateChecksum("RESUME_REQUEST", strlen("RESUME_REQUEST"))
-    };
+        // Notificar a Gotham
+        SocketMessage resumeRequest = {
+            .type = 0x11,
+            .dataLength = strlen("RESUME_REQUEST"),
+            .data = strdup("RESUME_REQUEST"),
+            .timestamp = (unsigned int)time(NULL),
+            .checksum = calculateChecksum("RESUME_REQUEST", strlen("RESUME_REQUEST"))};
 
-    sendSocketMessage(gothamSocketFD, resumeRequest);
-    free(resumeRequest.data);
-    close(workerSocketFD);
-    return;    }
+        sendSocketMessage(gothamSocketFD, resumeRequest);
+        free(resumeRequest.data);
+        close(workerSocketFD);
+        return;
+    }
 
     free(response.data);
 
@@ -287,7 +293,7 @@ printError("Worker disconnected unexpectedly. Notifying Gotham...\n");
 int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
 {
 
-// Crear y conectar el socket
+    // Crear y conectar el socket
     if ((gothamSocketFD = createAndConnectSocket(fleck.ip, fleck.port, FALSE)) < 0)
     {
         printError("Error connecting to Gotham\n");
@@ -313,7 +319,6 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
 
     printf("Datos de la Solicitud Data: %s\n", request.data);
 
-
     sendSocketMessage(gothamSocketFD, request);
     free(dataBuffer);
     printf("\nMensaje a Gotham enviado\n");
@@ -322,7 +327,6 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
     SocketMessage response = getSocketMessage(gothamSocketFD);
     printf("Respuesta de Gotham: Type: %d, Data: %s\n", response.type, response.data);
     //! Creo que Gotham si envia bien ip y puerto no se porque falla aqui al recibir el mensaje
-
 
     if (response.type != 0x10)
     {
@@ -359,7 +363,6 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
     return 0; // Èxit
 }
 
-
 /**
  * @brief Clears all resources and disconnects from Gotham.
  */
@@ -375,6 +378,8 @@ void handleDistortCommand(const char *fileName, const char *factor)
     // Treure l'extensió (sense el punt inicial)
     char *mediaType = extension + 1;
     printf("Estoy dentro de handleDistortCommand - MediaType: %s\n", mediaType);
+
+    
     // Enviar petició a Gotham
     if (sendDistortRequestToGotham(mediaType, fileName) == 0)
     {
@@ -386,3 +391,4 @@ void handleDistortCommand(const char *fileName, const char *factor)
     }
 }
 
+//toDo----------------------------------------------------- DISTORT ------------------------------------------------------------------
