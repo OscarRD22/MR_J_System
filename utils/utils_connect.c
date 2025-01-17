@@ -62,19 +62,27 @@ SocketMessage getSocketMessage(int clientFD) {
         message.data[message.dataLength] = '\0'; // Asegura el final de la cadena
     }
 
+        printf("Message being 1-GETSocket: Type:%d - DataLength:%d - Data:%s\n", message.type, message.dataLength, message.data);
+
+
     // Deserializa y valida CHECKSUM (2 bytes)
     int checksum = buffer[250] | (buffer[251] << 8);
-    int calculatedChecksum = calculateChecksum(buffer, 250);
-    if (checksum != calculatedChecksum) {
+    message.checksum = calculateChecksum(buffer, 250);
+    if (checksum != message.checksum) {
         printError("Error: checksum mismatch\n");
         free(message.data);
         message.data = NULL;
-        exit(1); // Opcional: puedes manejar el error de otra manera
+
+        //exit(1); // Opcional: puedes manejar el error de otra manera
     }
 
     // Deserializa TIMESTAMP (4 bytes)
     message.timestamp = buffer[252] | (buffer[253] << 8) |
                         (buffer[254] << 16) | (buffer[255] << 24);
+
+
+    printf("Message being 2-GETSocket: Type:%d - DataLength:%d - Data:%s - CheckSum:%d - Timestump:%d\n", message.type, message.dataLength, message.data, message.checksum, message.timestamp);
+
 
     return message;
 }
@@ -114,6 +122,8 @@ void sendSocketMessage(int socketFD, SocketMessage message) {
     buffer[253] = ((timestamp >> 8) & 0xFF);
     buffer[254] = ((timestamp >> 16) & 0xFF);
     buffer[255] = ((timestamp >> 24) & 0xFF);
+
+    printf("Message being sentSocket: %d - %d - %s - %d - %d\n", message.type, message.dataLength, message.data, checksum, message.timestamp);
 
     // Envia el buffer pel socket
     if (write(socketFD, buffer, 256) != 256) {

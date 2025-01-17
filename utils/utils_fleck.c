@@ -9,6 +9,7 @@
 #define MAX_FILES 100
 
 // Osar.romero - Marc.marza
+
 extern Fleck fleck;
 int gothamSocketFD, distorsionSocketFD;
 int isDistorsionConnected = FALSE;
@@ -218,7 +219,7 @@ int connectToGotham(int isExit)
  * @param workerIP La IP del worker (Harley) proporcionada por Gotham.
  * @param workerPort El puerto del worker (Harley) proporcionado por Gotham.
  */
-void connectToHarleyAndDisconnect(const char *workerIP, int workerPort)
+void connectToHarleyAndDisconnect(char *workerIP, int workerPort)
 {
     // Crear y conectar el socket al worker Harley
     int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
@@ -312,8 +313,8 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
     request.type = 0x10; // Tipus de petició de distorsió
     request.dataLength = strlen(dataBuffer);
     request.data = dataBuffer;
-    request.timestamp = (unsigned int)time(NULL);
-    request.checksum = calculateChecksum(dataBuffer, request.dataLength);
+    //request.timestamp = (unsigned int)time(NULL);
+    //request.checksum = calculateChecksum(dataBuffer, request.dataLength);
 
     printToConsole("Enviando solicitud de distorsión a Gotham...");
 
@@ -366,8 +367,9 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
 /**
  * @brief Clears all resources and disconnects from Gotham.
  */
-void handleDistortCommand(const char *fileName, const char *factor)
+void handleDistortCommand(char *fileName, char *factor)
 {
+    
     char *extension = strrchr(fileName, '.');
     if (!extension || strlen(extension) < 2)
     {
