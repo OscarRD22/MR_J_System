@@ -160,12 +160,21 @@ void busyWorker(const char *ip, int port)
  * @param workerType Tipo de Worker que se busca.
  * @return Worker* Un puntero al Worker disponible, o NULL si no hay disponibles.
  */
-Worker *getAvailableWorkerByType(const char *workerType)
+Worker *getAvailableWorkerByType( char *workerType)
 {
     if (workerType == NULL)
     {
         printError("Worker type is NULL. Cannot search for workers.\n");
         return NULL;
+    }
+
+    if (strcmp(workerType, "wav") == 0 || strcmp(workerType, "png") == 0 || strcmp(workerType, "jpg") == 0)
+    {
+        workerType = "Harley";
+    }
+    else if (strcmp(workerType, "txt") == 0)
+    {
+        workerType = "Enigma";
     }
 
     pthread_mutex_lock(&workersMutex);
@@ -235,7 +244,7 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
     printf("Found available worker: IP = %s, Port = %d\n", worker->ip, worker->port);
     // Marcar el worker como ocupado**
     busyWorker(worker->ip, worker->port);
-  
+
     //  Construir la respuesta con la información del Worker disponible
     char responseData[256];
     snprintf(responseData, sizeof(responseData), "%s&%d", worker->ip, worker->port);
@@ -244,8 +253,8 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
     successResponse.type = 0x10;
     successResponse.dataLength = strlen(responseData);
     successResponse.data = strdup(responseData);
-    successResponse.timestamp = (unsigned int)time(NULL);
-    successResponse.checksum = calculateChecksum(responseData, strlen(responseData));
+    // successResponse.timestamp = (unsigned int)time(NULL);
+    // successResponse.checksum = calculateChecksum(responseData, strlen(responseData));
 
     // Imprimir el contenido de successResponse.data
     char message[256];
@@ -597,28 +606,7 @@ void *listenToDistorsionWorkers()
 
             // Registro el worker y lo asigno como primario si no hay uno
             registerWorker(mappedType, ip, port);
-            // Intentar asignar como worker primario
-            // assignPrimaryWorker(&workers[workerCount - 1]);
 
-            /* Mensaje de nuevo worker conectado
-            const char *mappedType = NULL;
-
-            if (strcasecmp(workerType, "Media") == 0)
-            {
-                mappedType = "Harley";
-            }
-            else if (strcasecmp(workerType, "Text") == 0)
-            {
-                mappedType = "Enigma";
-            }
-            else
-            {
-                printError("Tipo de worker inválido. Ignorando registro.");
-                free(receivedMessage.data);
-                close(workerSocketFD);
-                continue;
-            }
-*/
             char message[256];
             snprintf(message, sizeof(message), "NEW %s worker connected - ready to distort!\n", mappedType);
             printToConsole(message);
@@ -628,8 +616,6 @@ void *listenToDistorsionWorkers()
             response.type = 0x02;
             response.dataLength = 0;
             response.data = NULL; // Trama OK con DATA vacío
-            response.timestamp = (unsigned int)time(NULL);
-            response.checksum = 0;
 
             sendSocketMessage(workerSocketFD, response);
             // printToConsole("Worker registered successfully!!!!!!!!\n");
