@@ -43,14 +43,6 @@ typedef struct
     char *worker_type;
 } Harley_enigma;
 
-typedef struct
-{
-    int numOfWorkers;  
-    char *workerName;
-    char *workerType;
-    char *WorkerIP;
-    int WorkerPort;
 
-} WorkerServer;
 
 #endif

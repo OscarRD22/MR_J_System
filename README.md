@@ -5,7 +5,9 @@
 
 
 ## Description
-This is a Mr. J. System a system capable of infallibly distorting reality, resisting any type of failure and automatically recovering from any setback. It consists of a central server, Gotham, and several clients, Fleck, who will make distortion requests. The central server will manage these requests through specialized processes (workers): Enigma, which will be dedicated to text distortion, and Harley, in charge of manipulating audiovisual media (image and audio). The system will work on a Linux-based infrastructure, using a TCP/IP network, ensuring a fast and stable connection between the different components.
+This is a Mr. J. System a system capable of infallibly distorting reality, resisting any type of failure and automatically recovering from any setback. It consists of a central server, Gotham, and several clients, Fleck, who will make distortion requests. The central server will manage these requests through specialized processes (workers): Enigma, which will be dedicated to text distortion, and Harley, in charge of manipulating audiovisual media (image and audio). The system will work on a Linux-based infrastructure, using a TCP/IP network, ensuring a fast and stable connection between the different components. 
+
+Oscar PORTS: 9850 - 9854
  
 
 ## Installation 🚀
