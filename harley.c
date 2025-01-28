@@ -180,9 +180,6 @@ printToConsole(message);
 
 
 
-
-
-
 void *listenToFlexDistorts()
 {
     // Crear socket de escucha

@@ -198,10 +198,10 @@ void commandInterpretter()
                 }
                 else
                 {
-                    char *b;
-                    asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
-                    printToConsole(b);
-                    free(b);
+                    //char *b;
+                    //asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
+                    //printToConsole(b);
+                    //free(b);
                     handleDistortCommand(filename, factor);
                 }
             }

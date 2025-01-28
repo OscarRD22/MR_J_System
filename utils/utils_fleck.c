@@ -5,6 +5,7 @@
 #include <time.h>
 #include "sys/stat.h"
 #include "../struct_definitions.h"
+#include "../utils/utils_file.h"
 
 #define MAX_FILES 100
 
@@ -126,7 +127,7 @@ void listText()
     }
 }
 
-//toDo----------------------------------------------------- CONNECT ------------------------------------------------------------------
+// toDo----------------------------------------------------- CONNECT ------------------------------------------------------------------
 
 /**
  * @brief Connects to the Gotham server with stable connection.
@@ -210,16 +211,16 @@ int connectToGotham(int isExit)
     // close(gothamSocketFD);
     return 0;
 }
-//toDo----------------------------------------------------- CONNECT ------------------------------------------------------------------
+// toDo----------------------------------------------------- CONNECT ------------------------------------------------------------------
 
-//toDo----------------------------------------------------- DISTORT ------------------------------------------------------------------
+// toDo----------------------------------------------------- DISTORT ------------------------------------------------------------------
 
 /**
- * @brief Conecta a Harley con los datos recibidos de Gotham (IP, puerto) y se desconecta al finalizar.
+ * @brief Conecta al WORKER con los datos recibidos de Gotham (IP, puerto) y se desconecta al finalizar.
  * @param workerIP La IP del worker (Harley) proporcionada por Gotham.
  * @param workerPort El puerto del worker (Harley) proporcionado por Gotham.
  */
-void connectToHarleyAndDisconnect(char *workerIP, int workerPort)
+void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename, char *factor)
 {
     // Crear y conectar el socket al worker Harley
     int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
@@ -231,14 +232,27 @@ void connectToHarleyAndDisconnect(char *workerIP, int workerPort)
 
     printToConsole("Connected to Harley worker successfully.\n");
 
+    int filesize = getFileSize(filename);
+    char *md5sum = calculateMD5(filename);
+
+    //<userName>&<FileName>&<FileSize>&<MD5SUM>&<factor>
+    char *data = NULL;
+    if (asprintf(&data, "%s&%s&%s&%s&%s", fleck.username, filename, filesize, md5sum, factor) < 0)
+    {
+        printError("Failed to allocate memory for distortion request.\n");
+        return;
+    }
+
+    char message[256];
+    snprintf(message, sizeof(message), "Username:%s - Filename:%s - Filesize:%d - Md5sum:%s - Factor:%s \n", fleck.username, filename, filesize, md5sum, factor);
+    printToConsole(message);
+
     // Simular operación de distorsión
     // Puedes enviar mensajes simples para demostrar la interacción
     SocketMessage initialMessage = {
         .type = 0x03, // Tipo de mensaje para iniciar conexión con Harley
-        .dataLength = 0,
-        .data = NULL,
-        .timestamp = (unsigned int)time(NULL),
-        .checksum = 0};
+        .dataLength = strlen(data),
+        .data = NULL};
 
     sendSocketMessage(workerSocketFD, initialMessage);
 
@@ -291,7 +305,7 @@ void connectToHarleyAndDisconnect(char *workerIP, int workerPort)
  * @param fileName El nom del fitxer a distorsionar.
  * @return 0 si Gotham retorna un worker disponible, -1 en cas d'error o "DISTORT_KO".
  */
-int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
+int sendDistortRequestToGotham(const char *mediaType, const char *fileName, char *factor)
 {
 
     // Crear y conectar el socket
@@ -313,8 +327,6 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
     request.type = 0x10; // Tipus de petició de distorsió
     request.dataLength = strlen(dataBuffer);
     request.data = dataBuffer;
-    //request.timestamp = (unsigned int)time(NULL);
-    //request.checksum = calculateChecksum(dataBuffer, request.dataLength);
 
     printToConsole("Enviando solicitud de distorsión a Gotham...");
 
@@ -327,7 +339,6 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
     // Esperar resposta de Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
     printf("Respuesta de Gotham: Type: %d, Data: %s\n", response.type, response.data);
-    //! Creo que Gotham si envia bien ip y puerto no se porque falla aqui al recibir el mensaje
 
     if (response.type != 0x10)
     {
@@ -358,7 +369,8 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
     int workerPort = atoi(workerPortStr);
 
     printf("Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
-    connectToHarleyAndDisconnect(workerIP, workerPort);
+
+    connectToWorkerAndDisconnect(workerIP, workerPort, fileName, factor);
 
     free(response.data);
     return 0; // Èxit
@@ -369,7 +381,6 @@ int sendDistortRequestToGotham(const char *mediaType, const char *fileName)
  */
 void handleDistortCommand(char *fileName, char *factor)
 {
-    
     char *extension = strrchr(fileName, '.');
     if (!extension || strlen(extension) < 2)
     {
@@ -379,11 +390,9 @@ void handleDistortCommand(char *fileName, char *factor)
 
     // Treure l'extensió (sense el punt inicial)
     char *mediaType = extension + 1;
-    printf("Estoy dentro de handleDistortCommand - MediaType: %s\n", mediaType);
 
-    
     // Enviar petició a Gotham
-    if (sendDistortRequestToGotham(mediaType, fileName) == 0)
+    if (sendDistortRequestToGotham(mediaType, fileName, factor) == 0)
     {
         printToConsole("Distortion process completed successfully.\n");
     }
@@ -393,4 +402,4 @@ void handleDistortCommand(char *fileName, char *factor)
     }
 }
 
-//toDo----------------------------------------------------- DISTORT ------------------------------------------------------------------
+// toDo----------------------------------------------------- DISTORT ------------------------------------------------------------------
