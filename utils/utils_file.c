@@ -5,13 +5,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 int getFileSize(char *fileName)
 {
+
     FILE *file = fopen(fileName, "rb");
     if (file == NULL)
     {
-        printError("Error al abrir el archivo");
+        printError("Error al abrir el archivo\n");
         return -1;
     }
     // Mover el cursor al final del archivo para determinar su tamaño
@@ -44,6 +47,7 @@ char *calculateMD5(char *filePath)
     }
     else if (pid == 0)
     {
+
         // Código del proceso hijo
         close(pipefd[0]); // Cerrar el extremo de lectura del pipe
 
@@ -60,31 +64,41 @@ char *calculateMD5(char *filePath)
     }
     else
     {
+
         // Código del proceso padre
         close(pipefd[1]); // Cerrar el extremo de escritura del pipe
 
-        int bufferSize = 32 + 1 + strlen(filePath)+1;
-        // Leer el resultado del pipe
-        char buffer[bufferSize];
-        ssize_t bytesRead = read(pipefd[0], buffer, bufferSize -1);
-        if (bytesRead == bufferSize - 1)
+        // Leer la salida del proceso hijo
+        char buffer[256];
+        int bytesRead = read(pipefd[0], buffer, sizeof(buffer));
+        if (bytesRead == -1)
         {
-            buffer[bytesRead] = '\0';     // Asegurar que el buffer es un string
-            memcpy(md5sum, buffer, 32); // Copiar los primeros 32 caracteres (MD5SUM)
+            perror("Error al leer del pipe");
+            return NULL;
         }
-        else
+
+        // Eliminar el salto de línea al final de la cadena
+        buffer[bytesRead - 1] = '\0';
+
+        // Almacenar solo el valor de MD5 en una cadena
+        char *md5sum_start = strchr(buffer, ' ');
+        if (md5sum_start != NULL)
         {
-            perror("Error al leer desde el pipe");
+            *md5sum_start = '\0';
         }
+        md5sum = strdup(buffer);
+
         close(pipefd[0]); // Cerrar el extremo de lectura del pipe
 
         // Esperar a que termine el proceso hijo
         int status;
         waitpid(pid, &status, 0);
+
         if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
         {
-            fprintf(stderr, "El comando md5sum falló con código %d\n", WEXITSTATUS(status));
+
             free(md5sum);
+            printError("El comando md5sum falló\n");
             return NULL;
         }
     }

@@ -250,7 +250,6 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
         return;
     }
 
-    //!------mapping
 
     // Buscar un Worker disponible del tipo requerido
     printToConsole("Searching for an available worker...\n");
@@ -278,8 +277,6 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
     successResponse.type = 0x10;
     successResponse.dataLength = strlen(responseData);
     successResponse.data = strdup(responseData);
-    // successResponse.timestamp = (unsigned int)time(NULL);
-    // successResponse.checksum = calculateChecksum(responseData, strlen(responseData));
 
     // Imprimir el contenido de successResponse.data
     char message[256];
@@ -349,6 +346,7 @@ void *listenToFleck()
 
                     // Agregar el nuevo socket al conjunto maestro
                     FD_SET(newSocketFD, &master_set);
+                    printf("New Fleck connection accepted: %d\n", newSocketFD);
                     if (newSocketFD > max_fd)
                     {
                         max_fd = newSocketFD; // Actualizar el máximo descriptor de archivo
@@ -357,6 +355,7 @@ void *listenToFleck()
                 }
                 else
                 {
+                    printf("Socket activo: %d\n", fd);
                     // Socket existente - recibir mensaje
                     SocketMessage receivedMessage = getSocketMessage(fd);
 
@@ -593,6 +592,7 @@ void *listenToDistorsionWorkers()
 
                     // Agregar el nuevo socket al conjunto maestro
                     FD_SET(newSocketFD, &master_set);
+                    printf("New socket: %d\n", newSocketFD);
                     if (newSocketFD > max_fd)
                     {
                         max_fd = newSocketFD; // Actualizar el máximo descriptor de archivo
@@ -601,6 +601,7 @@ void *listenToDistorsionWorkers()
                 }
                 else
                 {
+                    printf("Socket: %d\n", fd);
                     // Socket existente - recibir mensaje
                     SocketMessage receivedMessage = getSocketMessage(fd);
 

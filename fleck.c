@@ -191,19 +191,25 @@ void commandInterpretter()
             {
                 char *filename = strtok(&command[8], " ");
                 char *factor = strtok(NULL, " ");
-
+                char *path = ("./files/");
+                char *fullPath;
+                asprintf(&fullPath, "%s%s", path, filename);
                 if (filename == NULL || factor == NULL)
                 {
                     printError("Invalid DISTORT command. Usage: DISTORT <filename> <factor>\n");
                 }
                 else
                 {
-                    //char *b;
+                     //char *b;
                     //asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
                     //printToConsole(b);
                     //free(b);
-                    handleDistortCommand(filename, factor);
+                    handleDistortCommand(fullPath, factor);
                 }
+                
+
+
+               
             }
         }
         else if (strncasecmp(command, "CHECK ", 6) == 0)

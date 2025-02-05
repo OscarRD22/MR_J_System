@@ -233,26 +233,26 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
     printToConsole("Connected to Harley worker successfully.\n");
 
     int filesize = getFileSize(filename);
+
     char *md5sum = calculateMD5(filename);
 
     //<userName>&<FileName>&<FileSize>&<MD5SUM>&<factor>
     char *data = NULL;
-    if (asprintf(&data, "%s&%s&%s&%s&%s", fleck.username, filename, filesize, md5sum, factor) < 0)
+    if (asprintf(&data, "%s&%s&%d&%s&%s", fleck.username, filename, filesize, md5sum, factor) < 0)
     {
         printError("Failed to allocate memory for distortion request.\n");
         return;
     }
 
-    char message[256];
-    snprintf(message, sizeof(message), "Username:%s - Filename:%s - Filesize:%d - Md5sum:%s - Factor:%s \n", fleck.username, filename, filesize, md5sum, factor);
-    printToConsole(message);
+    //char *message = NULL;
+    //asprintf(&message, "Username:%s - Filename:%s - Filesize:%d - Md5sum:%s - Factor:%s \n", fleck.username, filename, filesize, md5sum, factor);
+    //printToConsole(message);
 
-    // Simular operación de distorsión
     // Puedes enviar mensajes simples para demostrar la interacción
     SocketMessage initialMessage = {
         .type = 0x03, // Tipo de mensaje para iniciar conexión con Harley
         .dataLength = strlen(data),
-        .data = NULL};
+        .data = data};
 
     sendSocketMessage(workerSocketFD, initialMessage);
 
@@ -261,6 +261,10 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
     if (response.type == 0x03 && response.dataLength == 0)
     {
         printToConsole("Harley confirmed connection and ready to operate.\n");
+
+
+
+
     }
     else
     {
@@ -305,7 +309,7 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
  * @param fileName El nom del fitxer a distorsionar.
  * @return 0 si Gotham retorna un worker disponible, -1 en cas d'error o "DISTORT_KO".
  */
-int sendDistortRequestToGotham(const char *mediaType, const char *fileName, char *factor)
+int sendDistortRequestToGotham(char *mediaType, char *fileName, char *factor)
 {
 
     // Crear y conectar el socket

@@ -10,6 +10,8 @@
 #include "utils/io_utils.h"
 #include "so_compression.h"
 #include <time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <pthread.h>
 
 // Osar.romero - Marc.marza
@@ -159,26 +161,20 @@ void simulateDistortionProcess(int clientSocketFD)
     // releaseWorker(harley.gotham_ip, harley.gotham_port);
 }
 
+void managerDistorcion(SocketMessage receivedMessage)
+{
+    // § DATA: <userName>&<FileName>&<FileSize>&<MD5SUM>&<factor>*/
 
+    char *username = strtok(receivedMessage.data, "&");
+    char *filename = strtok(NULL, "&");
+    char *filesize = strtok(NULL, "&");
+    char *md5sum = strtok(NULL, "&");
+    char *factor = strtok(NULL, "&");
 
-void managerDistorcion(SocketMessage receivedMessage){
-                       // § DATA: <userName>&<FileName>&<FileSize>&<MD5SUM>&<factor>*/
-
-char *username = strtok(receivedMessage.data, "&");
-char *filename = strtok(NULL, "&");
-char *filesize = strtok(NULL, "&");
-char *md5sum = strtok(NULL, "&");
-char *factor = strtok(NULL, "&");
-
-char message[256];
-snprintf(message, sizeof(message), "Username:%s - Filename:%s - Filesize:%s - Md5sum:%s - Factor:%s \n", username, filename, filesize, md5sum, factor);
-printToConsole(message);
-
-
-
+    char message[256];
+    snprintf(message, sizeof(message), "Username:%s - Filename:%s - Filesize:%s - Md5sum:%s - Factor:%s \n", username, filename, filesize, md5sum, factor);
+    printToConsole(message);
 }
-
-
 
 void *listenToFlexDistorts()
 {
@@ -198,7 +194,7 @@ void *listenToFlexDistorts()
 
     // Agregar el socket de escucha al conjunto maestro
     FD_SET(listenFleckFD, &master_set);
-    FD_SET(gothamSocketFD, &master_set);        // Esperar actividad en los descriptores de archivo
+    FD_SET(gothamSocketFD, &master_set); // Esperar actividad en los descriptores de archivo
 
     int max_fd = listenFleckFD; // Máximo descriptor de archivo
 
@@ -221,6 +217,7 @@ void *listenToFlexDistorts()
             {
                 if (fd == listenFleckFD)
                 {
+
                     // Nueva conexión entrante
                     int newSocketFD = accept(listenFleckFD, NULL, NULL);
                     if (newSocketFD < 0)
@@ -239,8 +236,11 @@ void *listenToFlexDistorts()
                 }
                 else
                 {
+                    
+                    printf("Nuevo mensaje recibido\n");
                     // Socket existente - recibir mensaje
-                    SocketMessage receivedMessage = getSocketMessage(fd);
+                    SocketMessage receivedMessage = getSocketMessage(fd);   //!---- ERROR AQUI
+                    printf("Mensaje recibido: Type: %d, Data: %s\n", receivedMessage.type, receivedMessage.data);
 
                     // Manejar el tipo de mensaje
                     switch (receivedMessage.type)
@@ -248,8 +248,8 @@ void *listenToFlexDistorts()
                     case 0x03:
                         /*Trama  per  demanar  una  connexió  al  Worker  de  media. Aquesta  ja  inclou  información
                         del fitxer a distorsionar.*/
-                       managerDistorcion(receivedMessage);
-                        
+                        managerDistorcion(receivedMessage);
+
                         break;
 
                     case 0x04:
@@ -306,17 +306,21 @@ int main(int argc, char *argv[])
     printToConsole("Reading configuration file.\n");
     saveHarley(argv[1]);
     printToConsole("Connecting Harley worker to the system...");
+    int result = -1;
 
-    while (1)
+    while (result != 0)
     {
         printToConsole("Connected to Mr. J System, ready to listen to Fleck petitions\n");
         printToConsole("\nWaiting for connections...\n");
+
+        result = connectHarleyToGotham();
+        printf("Result: %d\n", result);
         // Intentar conexión a Gotham
-        if (connectHarleyToGotham() != 0)
+        if (result != 0)
         {
             printError("Failed to connect to Gotham. Retrying in 2 seconds...\n");
             sleep(2);
-            continue;
+            // continue;
         }
     }
 
