@@ -100,7 +100,7 @@ int connectHarleyToGotham()
 
     // Crear el mensaje a enviar a Gotham
     char *messageBuffer = NULL;
-    if (asprintf(&messageBuffer, "%s&%s&%d", harley.worker_type, harley.gotham_ip, harley.gotham_port) < 0)
+    if (asprintf(&messageBuffer, "%s&%s&%d", harley.worker_type, harley.fleck_ip, harley.fleck_port) < 0)
     {
         printError("Error al asignar memoria para el mensaje");
         return -1;
@@ -161,7 +161,7 @@ void simulateDistortionProcess(int clientSocketFD)
     // releaseWorker(harley.gotham_ip, harley.gotham_port);
 }
 
-void managerDistorcion(SocketMessage receivedMessage)
+void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
 {
     // § DATA: <userName>&<FileName>&<FileSize>&<MD5SUM>&<factor>*/
 
@@ -174,6 +174,45 @@ void managerDistorcion(SocketMessage receivedMessage)
     char message[256];
     snprintf(message, sizeof(message), "Username:%s - Filename:%s - Filesize:%s - Md5sum:%s - Factor:%s \n", username, filename, filesize, md5sum, factor);
     printToConsole(message);
+
+    if (strlen(username) == 0 || strlen(filename) == 0 || strlen(filesize) == 0 || strlen(md5sum) == 0 || strlen(factor) == 0)
+    {
+        printError("Error al leer el mensaje\n");
+        SocketMessage messageToSend = {
+        .type = 0x03,
+        .data = "CON_KO"};
+        sendSocketMessage(fd_Fleck, messageToSend);        
+        return;
+    }
+
+
+
+    // Crear el mensaje a enviar a Gotham
+    char *messageBuffer = NULL;
+    if (asprintf(&messageBuffer, "%s&%s&%s&%s&%s", username, filename, filesize, md5sum, factor) < 0)
+    {
+        printError("Error al asignar memoria para el mensaje");
+        return;
+    }
+
+    SocketMessage messageToSend = {
+        .type = 0x03,
+        .dataLength = 0,
+        .data = NULL,
+        };
+
+    free(messageBuffer);
+
+    sendSocketMessage(fd_Fleck, messageToSend);
+    free(messageToSend.data);
+
+   //Fleck envia el archivo a Harley
+
+
+    //free(response.data);
+    // printToConsole("Connected to Gotham successfully.\n");
+
+    return; // Éxito
 }
 
 void *listenToFlexDistorts()
@@ -236,10 +275,10 @@ void *listenToFlexDistorts()
                 }
                 else
                 {
-                    
+
                     printf("Nuevo mensaje recibido\n");
                     // Socket existente - recibir mensaje
-                    SocketMessage receivedMessage = getSocketMessage(fd);   //!---- ERROR AQUI
+                    SocketMessage receivedMessage = getSocketMessage(fd);
                     printf("Mensaje recibido: Type: %d, Data: %s\n", receivedMessage.type, receivedMessage.data);
 
                     // Manejar el tipo de mensaje
@@ -248,8 +287,7 @@ void *listenToFlexDistorts()
                     case 0x03:
                         /*Trama  per  demanar  una  connexió  al  Worker  de  media. Aquesta  ja  inclou  información
                         del fitxer a distorsionar.*/
-                        managerDistorcion(receivedMessage);
-
+                        managerDistorcion(receivedMessage, fd);
                         break;
 
                     case 0x04:

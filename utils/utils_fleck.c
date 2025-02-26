@@ -256,8 +256,10 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
 
     sendSocketMessage(workerSocketFD, initialMessage);
 
+
     // Esperar respuesta de Harley
     SocketMessage response = getSocketMessage(workerSocketFD);
+    printf("Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
     if (response.type == 0x03 && response.dataLength == 0)
     {
         printToConsole("Harley confirmed connection and ready to operate.\n");

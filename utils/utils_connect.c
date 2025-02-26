@@ -63,7 +63,7 @@ SocketMessage getSocketMessage(int clientFD) {
         message.data[message.dataLength] = '\0'; // Asegura el final de la cadena
     }
 
-       // printf("Message being 1-GETSocket: Type:%d - DataLength:%d - Data:%s\n", message.type, message.dataLength, message.data);
+        printf("Message being 1-GETSocket: Type:%d - DataLength:%d - Data:%s\n", message.type, message.dataLength, message.data);
 
 
     // Deserializa y valida CHECKSUM (2 bytes)
@@ -122,7 +122,7 @@ void sendSocketMessage(int socketFD, SocketMessage message) {
     buffer[254] = ((timestamp >> 16) & 0xFF);
     buffer[255] = ((timestamp >> 24) & 0xFF);
 
-    //printf("Message being sentSocket: %d - %d - %s - %d - %d\n", message.type, message.dataLength, message.data, checksum, message.timestamp);
+    printf("Message being sentSocket: %d - %d - %s - %d - %d\n", message.type, message.dataLength, message.data, checksum, message.timestamp);
 
     // Envia el buffer pel socket
     if (write(socketFD, buffer, 256) != 256) {
