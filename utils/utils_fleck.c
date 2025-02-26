@@ -266,6 +266,12 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
 
 
 
+        // Enviar el archivo a Harley
+        sendFile(workerSocketFD, filename);
+
+        printf("Archivo enviado a Harley\n");
+
+
 
     }
     else
@@ -376,6 +382,11 @@ int sendDistortRequestToGotham(char *mediaType, char *fileName, char *factor)
 
     printf("Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
 
+
+
+
+
+
     connectToWorkerAndDisconnect(workerIP, workerPort, fileName, factor);
 
     free(response.data);
@@ -400,6 +411,8 @@ void handleDistortCommand(char *fileName, char *factor)
     // Enviar petició a Gotham
     if (sendDistortRequestToGotham(mediaType, fileName, factor) == 0)
     {
+
+
         printToConsole("Distortion process completed successfully.\n");
     }
     else

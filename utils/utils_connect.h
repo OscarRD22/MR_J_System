@@ -12,3 +12,6 @@ int createAndListenSocket(char *IP, int port);
 void sendSocketMessage(int socketFD, SocketMessage message);
 int calculateChecksum(const char *buffer, size_t length);
 void sendError(int socketFD);
+
+void sendFile(int socketFD, char *filename);
+void receiveFile(int socketFD, char *filename);

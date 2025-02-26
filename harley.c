@@ -179,13 +179,11 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
     {
         printError("Error al leer el mensaje\n");
         SocketMessage messageToSend = {
-        .type = 0x03,
-        .data = "CON_KO"};
-        sendSocketMessage(fd_Fleck, messageToSend);        
+            .type = 0x03,
+            .data = "CON_KO"};
+        sendSocketMessage(fd_Fleck, messageToSend);
         return;
     }
-
-
 
     // Crear el mensaje a enviar a Gotham
     char *messageBuffer = NULL;
@@ -199,18 +197,19 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
         .type = 0x03,
         .dataLength = 0,
         .data = NULL,
-        };
+    };
 
     free(messageBuffer);
 
     sendSocketMessage(fd_Fleck, messageToSend);
     free(messageToSend.data);
 
-   //Fleck envia el archivo a Harley
+    char *path = NULL;
+    asprintf(&path, "%s/%s", harley.folder, filename);
 
-
-    //free(response.data);
-    // printToConsole("Connected to Gotham successfully.\n");
+    printf("Pre reciveFile FUNCTION\n");
+    receiveFile(fd_Fleck, path);
+    printf("Post reciveFile FUNCTION\n");
 
     return; // Éxito
 }

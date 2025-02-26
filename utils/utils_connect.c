@@ -281,3 +281,66 @@ void sendError(int socketFD)
     sendSocketMessage(socketFD, message);
     free(message.data);
 }
+
+
+
+
+void sendFile(int socketFD, char *filename){
+
+    FILE *file = fopen(filename, "rb");
+    if (file == NULL)
+    {
+        printError("Error opening file\n");
+        //sendError(socketFD);
+        return;
+    }
+
+    fseek(file, 0, SEEK_END);
+    fseek(file, 0, SEEK_SET);
+
+    char buffer[256];
+    
+    size_t bytesRead = fread(buffer, 1, 256, file);
+
+    while (bytesRead > 0)
+    {
+        SocketMessage message;
+        message.type = 0x05;
+        message.dataLength = bytesRead;
+        message.data = buffer;
+        sendSocketMessage(socketFD, message);
+        bytesRead = fread(buffer, 1, 256, file);
+    }
+
+    fclose(file);
+    return;
+
+}
+
+
+void receiveFile(int socketFD, char *filename)
+{
+    FILE *file = fopen(filename, "wb");
+    if (file == NULL)
+    {
+        printError("Error opening file\n");
+        return;
+    }
+
+    SocketMessage message;
+    do
+    {
+        message = getSocketMessage(socketFD);
+        if (message.type != 0x05)
+        {
+            printError("Error: unexpected message type\n");
+            sendError(socketFD);
+            fclose(file);
+            return;
+        }
+        fwrite(message.data, 1, message.dataLength, file);
+    } while (message.dataLength == 256);
+
+    fclose(file);
+    return;
+}
