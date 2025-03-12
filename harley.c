@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 
+
 #include "utils/utils_connect.h"
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
@@ -133,7 +134,7 @@ int connectHarleyToGotham()
     return 0; // Éxito
 }
 
-void simulateDistortionProcess(int clientSocketFD)
+/*void simulateDistortionProcess(int clientSocketFD)
 {
     printToConsole("Receiving original media/text...");
     sleep(2); // Simula procesamiento
@@ -159,8 +160,37 @@ void simulateDistortionProcess(int clientSocketFD)
 
     // Notificar a Gotham que el worker está disponible
     // releaseWorker(harley.gotham_ip, harley.gotham_port);
+}*/
+
+/**
+ * @brief Distorts the file
+ * @param path The path of the file
+ * @param factor The factor of distortion
+ */
+void distortionFile(char *path, char *factor){
+printf("Distorsionando archivo\n");
+//int SO_compressAudio(char *input_file, int interval_ms);
+
+
+//If depen de extensio
+int error = SO_compressAudio(path, atoi(factor));
+
+if (error != 0)
+{
+    printError("Error al distorsionar el archivo\n");
+    return;
 }
 
+printToConsole("Archivo distorsionado correctamente\n");
+
+}
+
+
+/**
+ * @brief Manages the distortion process
+ * @param receivedMessage The message received from Fleck
+ * @param fd_Fleck The file descriptor of the Fleck socket
+ */
 void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
 {
     // § DATA: <userName>&<FileName>&<FileSize>&<MD5SUM>&<factor>*/
@@ -207,12 +237,23 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
     char *path = NULL;
     asprintf(&path, "%s/%s", harley.folder, filename);
 
-    printf("Pre reciveFile FUNCTION\n");
+    //printf("Pre reciveFile FUNCTION\n");
     receiveFile(fd_Fleck, path);
     printf("Post reciveFile FUNCTION\n");
 
+    //Proceso de distorsión
+    distortionFile(path, factor);
+
+
+//Enviar archivo distorsionado
+    //sendFile(fd_Fleck, path);
+    //free(path);
+
+
     return; // Éxito
 }
+
+
 
 void *listenToFlexDistorts()
 {
