@@ -20,7 +20,8 @@
  * @param clientFD The socket file descriptor
  * @return The message
  */
-SocketMessage getSocketMessage(int clientFD) {
+SocketMessage getSocketMessage(int clientFD)
+{
     SocketMessage message;
     char buffer[256];
     ssize_t totalBytesRead = 0, bytesRead;
@@ -28,13 +29,16 @@ SocketMessage getSocketMessage(int clientFD) {
     message.data = NULL;
 
     // Lee del socket en un bucle hasta que se reciban todos los datos necesarios.
-    while (totalBytesRead < 256) {
+    while (totalBytesRead < 256)
+    {
         bytesRead = read(clientFD, buffer + totalBytesRead, 256 - totalBytesRead);
-        if (bytesRead < 0) { // Error en la lectura
+        if (bytesRead < 0)
+        { // Error en la lectura
             printError("Error while reading from socket\n");
             exit(1);
         }
-        if (bytesRead == 0) { // Desconexión ordenada
+        if (bytesRead == 0)
+        { // Desconexión ordenada
             printError("Client disconnected\n");
             exit(1);
         }
@@ -45,17 +49,20 @@ SocketMessage getSocketMessage(int clientFD) {
     message.type = buffer[0];
 
     // Deserializa DATA_LENGTH (2 bytes)
-    //message.dataLength = buffer[1] | (buffer[2] << 8);
+    // message.dataLength = buffer[1] | (buffer[2] << 8);
     memcpy(&message.dataLength, &buffer[1], 2);
 
     // Deserializa DATA (hasta 250 bytes, según DATA_LENGTH)
-    if (message.dataLength > 0) {
-        if (message.dataLength > 250) {
+    if (message.dataLength > 0)
+    {
+        if (message.dataLength >247)
+        {
             printError("Error: message data length exceeds buffer size\n");
             exit(1);
         }
         message.data = malloc(message.dataLength + 1); // +1 por '\0'
-        if (!message.data) {
+        if (!message.data)
+        {
             printError("Error allocating memory for message data\n");
             exit(1);
         }
@@ -63,52 +70,50 @@ SocketMessage getSocketMessage(int clientFD) {
         message.data[message.dataLength] = '\0'; // Asegura el final de la cadena
     }
 
-        printf("Message being 1-GETSocket: Type:%d - DataLength:%d - Data:%s\n", message.type, message.dataLength, message.data);
-
+    printf("Message being 1-GETSocket: Type:%d - DataLength:%d - Data:%s\n", message.type, message.dataLength, message.data);
 
     // Deserializa y valida CHECKSUM (2 bytes)
     int checksum = buffer[250] | (buffer[251] << 8);
     message.checksum = calculateChecksum(buffer, 250);
-    if (checksum != message.checksum) {
+    if (checksum != message.checksum)
+    {
         printError("Error: checksum mismatch\n");
-        //free(message.data);
-        //message.data = NULL;
+        // free(message.data);
+        // message.data = NULL;
     }
-//else{ printf("Checksum correcto\n");}
-    // Deserializa TIMESTAMP (4 bytes)
+    // else{ printf("Checksum correcto\n");}
+    //  Deserializa TIMESTAMP (4 bytes)
     message.timestamp = buffer[252] | (buffer[253] << 8) |
                         (buffer[254] << 16) | (buffer[255] << 24);
 
-
-    //printf("Message being 2-GETSocket: Type:%d - DataLength:%d - Data:%s - CheckSum:%d - Timestump:%d\n", message.type, message.dataLength, message.data, message.checksum, message.timestamp);
-
+    // printf("Message being 2-GETSocket: Type:%d - DataLength:%d - Data:%s - CheckSum:%d - Timestump:%d\n", message.type, message.dataLength, message.data, message.checksum, message.timestamp);
 
     return message;
 }
-
-
 
 /**
  * @brief Sends a message through a socket this does not work with sending files
  * @param socketFD The socket file descriptor
  * @param message The message to send
  */
-void sendSocketMessage(int socketFD, SocketMessage message) {
+void sendSocketMessage(int socketFD, SocketMessage message)
+{
     char buffer[256] = {0}; // Inicialitza el buffer amb 0
 
     // Serialitza TYPE (1 byte)
     buffer[0] = message.type;
 
     // Serialitza DATA_LENGTH (2 bytes)
-    //buffer[1] = (message.dataLength & 0xFF);         // Byte menys significatiu
-    //buffer[2] = ((message.dataLength >> 8) & 0xFF);  // Byte més significatiu
+    // buffer[1] = (message.dataLength & 0xFF);         // Byte menys significatiu
+    // buffer[2] = ((message.dataLength >> 8) & 0xFF);  // Byte més significatiu
     memcpy(&buffer[1], &message.dataLength, 2);
     // Serialitza DATA (fins a 250 bytes)
-    size_t dataSize = (message.dataLength > 250) ? 250 : message.dataLength;
-    if (message.data != NULL) {
+    size_t dataSize = (message.dataLength > 247) ? 247 : message.dataLength;
+    if (message.data != NULL)
+    {
         memcpy(&buffer[3], message.data, dataSize); // Copia els bytes de DATA
     }
-    memset(&buffer[3 + dataSize], '@', 250 - dataSize); // Omple amb '@'
+    memset(&buffer[3 + dataSize], '\0', 247 - dataSize); // Omple amb '@'
 
     // Serialitza CHECKSUM (2 bytes)
     int checksum = calculateChecksum(buffer, 250); // Calcula només fins al byte 249
@@ -125,24 +130,24 @@ void sendSocketMessage(int socketFD, SocketMessage message) {
     printf("Message being sentSocket: %d - %d - %s - %d - %d\n", message.type, message.dataLength, message.data, checksum, message.timestamp);
 
     // Envia el buffer pel socket
-    if (write(socketFD, buffer, 256) != 256) {
+    if (write(socketFD, buffer, 256) != 256)
+    {
         perror("Error sending data through socket");
     }
 }
 
-
-
-int calculateChecksum(const char *buffer, size_t length) {
+int calculateChecksum(const char *buffer, size_t length)
+{
     int checksum = 0;
 
     // Sumar els valors ASCII dels primers 250 bytes
-    for (size_t i = 0; i < length - 6; i++) {
+    for (size_t i = 0; i < length - 6; i++)
+    {
         checksum += (unsigned char)buffer[i];
     }
 
     return checksum % 65536; // Redueix al rang de 16 bits
 }
-
 
 /**
  * @brief Creates a socket and connects it to a server
@@ -253,7 +258,7 @@ int createAndListenSocket(char *IP, int port)
         exit(1);
     }
 
-    //printToConsole("Socket created\n");
+    // printToConsole("Socket created\n");
 
     if (bind(socketFD, (struct sockaddr *)&server, sizeof(server)) < 0)
     {
@@ -282,25 +287,23 @@ void sendError(int socketFD)
     free(message.data);
 }
 
+void sendFile(int socketFD, char *filename)
+{
 
-
-
-void sendFile(int socketFD, char *filename){
-
-    FILE *file = fopen(filename, "rb");
+    FILE *file = fopen(filename, "r");
     if (file == NULL)
     {
         printError("Error opening file\n");
-        //sendError(socketFD);
+        // sendError(socketFD);
         return;
     }
 
     fseek(file, 0, SEEK_END);
     fseek(file, 0, SEEK_SET);
 
-    char buffer[256];
-    
-    size_t bytesRead = fread(buffer, 1, 256, file);
+    char buffer[247];
+
+    size_t bytesRead = fread(buffer, 1, 247, file);
 
     while (bytesRead > 0)
     {
@@ -309,21 +312,23 @@ void sendFile(int socketFD, char *filename){
         message.dataLength = bytesRead;
         message.data = buffer;
         sendSocketMessage(socketFD, message);
-        bytesRead = fread(buffer, 1, 256, file);
+        bytesRead = fread(buffer, 1, 247, file);
     }
 
     fclose(file);
     return;
-
 }
-
 
 void receiveFile(int socketFD, char *filename)
 {
-    FILE *file = fopen(filename, "wb");
+
+
+
+    FILE *file = fopen(filename, "w+");
     if (file == NULL)
     {
         printError("Error opening file\n");
+        printf("%s\n", filename);
         return;
     }
 
@@ -339,7 +344,7 @@ void receiveFile(int socketFD, char *filename)
             return;
         }
         fwrite(message.data, 1, message.dataLength, file);
-    } while (message.dataLength == 256);
+    } while (message.dataLength == 247);
 
     fclose(file);
     return;

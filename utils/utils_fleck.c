@@ -220,7 +220,7 @@ int connectToGotham(int isExit)
  * @param workerIP La IP del worker (Harley) proporcionada por Gotham.
  * @param workerPort El puerto del worker (Harley) proporcionado por Gotham.
  */
-void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename, char *factor)
+void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath, char *fileName, char *factor)
 {
     // Crear y conectar el socket al worker Harley
     int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
@@ -232,21 +232,21 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
 
     printToConsole("Connected to Harley worker successfully.\n");
 
-    int filesize = getFileSize(filename);
+    int filesize = getFileSize(fullPath);
 
-    char *md5sum = calculateMD5(filename);
+    char *md5sum = calculateMD5(fullPath);
 
-    //<userName>&<FileName>&<FileSize>&<MD5SUM>&<factor>
+    //<userName>&<fullPath>&<FileSize>&<MD5SUM>&<factor>
     char *data = NULL;
-    if (asprintf(&data, "%s&%s&%d&%s&%s", fleck.username, filename, filesize, md5sum, factor) < 0)
+    if (asprintf(&data, "%s&%s&%d&%s&%s", fleck.username, fileName, filesize, md5sum, factor) < 0)
     {
         printError("Failed to allocate memory for distortion request.\n");
         return;
     }
 
-    //char *message = NULL;
-    //asprintf(&message, "Username:%s - Filename:%s - Filesize:%d - Md5sum:%s - Factor:%s \n", fleck.username, filename, filesize, md5sum, factor);
-    //printToConsole(message);
+    // char *message = NULL;
+    // asprintf(&message, "Username:%s - fullPath:%s - Filesize:%d - Md5sum:%s - Factor:%s \n", fleck.username, fullPath, filesize, md5sum, factor);
+    // printToConsole(message);
 
     // Puedes enviar mensajes simples para demostrar la interacción
     SocketMessage initialMessage = {
@@ -256,7 +256,6 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
 
     sendSocketMessage(workerSocketFD, initialMessage);
 
-
     // Esperar respuesta de Harley
     SocketMessage response = getSocketMessage(workerSocketFD);
     printf("Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
@@ -264,15 +263,10 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
     {
         printToConsole("Harley confirmed connection and ready to operate.\n");
 
-
-
         // Enviar el archivo a Harley
-        sendFile(workerSocketFD, filename);
+        sendFile(workerSocketFD, fullPath);
 
         printf("Archivo enviado a Harley\n");
-
-
-
     }
     else
     {
@@ -317,7 +311,7 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *filename
  * @param fileName El nom del fitxer a distorsionar.
  * @return 0 si Gotham retorna un worker disponible, -1 en cas d'error o "DISTORT_KO".
  */
-int sendDistortRequestToGotham(char *mediaType, char *fileName, char *factor)
+int sendDistortRequestToGotham(char *mediaType, char *fullPath, char *filename, char *factor)
 {
 
     // Crear y conectar el socket
@@ -329,7 +323,7 @@ int sendDistortRequestToGotham(char *mediaType, char *fileName, char *factor)
 
     // Construir el missatge per enviar a Gotham
     char *dataBuffer = NULL;
-    if (asprintf(&dataBuffer, "%s&%s", mediaType, fileName) < 0)
+    if (asprintf(&dataBuffer, "%s&%s", mediaType, fullPath) < 0)
     {
         printError("Failed to allocate memory for distortion request.\n");
         return -1;
@@ -382,12 +376,7 @@ int sendDistortRequestToGotham(char *mediaType, char *fileName, char *factor)
 
     printf("Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
 
-
-
-
-
-
-    connectToWorkerAndDisconnect(workerIP, workerPort, fileName, factor);
+    connectToWorkerAndDisconnect(workerIP, workerPort, fullPath, filename, factor);
 
     free(response.data);
     return 0; // Èxit
@@ -396,9 +385,9 @@ int sendDistortRequestToGotham(char *mediaType, char *fileName, char *factor)
 /**
  * @brief Clears all resources and disconnects from Gotham.
  */
-void handleDistortCommand(char *fileName, char *factor)
+void handleDistortCommand(char *fullPath, char *filename, char *factor)
 {
-    char *extension = strrchr(fileName, '.');
+    char *extension = strrchr(fullPath, '.');
     if (!extension || strlen(extension) < 2)
     {
         printError("Invalid file type. Please provide a valid file.\n");
@@ -409,9 +398,8 @@ void handleDistortCommand(char *fileName, char *factor)
     char *mediaType = extension + 1;
 
     // Enviar petició a Gotham
-    if (sendDistortRequestToGotham(mediaType, fileName, factor) == 0)
+    if (sendDistortRequestToGotham(mediaType, fullPath, filename, factor) == 0)
     {
-
 
         printToConsole("Distortion process completed successfully.\n");
     }

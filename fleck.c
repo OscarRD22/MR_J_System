@@ -204,7 +204,7 @@ void commandInterpretter()
                     //asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
                     //printToConsole(b);
                     //free(b);
-                    handleDistortCommand(fullPath, factor);
+                    handleDistortCommand(fullPath, filename, factor);
                 }
                 
 

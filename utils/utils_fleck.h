@@ -16,6 +16,6 @@ void listMedia();
 void listText();
 int connectToGotham(int isExit);
 void clearAll();
-void handleDistortCommand( char *filename,  char *factor);
+void handleDistortCommand(char *fullPath, char *filename,  char *factor);
 void sendFileToWorker(int workerSocketFD,  char *filename);
 void checkStatus();
