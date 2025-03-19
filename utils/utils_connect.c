@@ -1,4 +1,5 @@
 #include "utils_connect.h"
+#include "utils_file.h"
 #include "io_utils.h"
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -55,7 +56,7 @@ SocketMessage getSocketMessage(int clientFD)
     // Deserializa DATA (hasta 250 bytes, según DATA_LENGTH)
     if (message.dataLength > 0)
     {
-        if (message.dataLength >247)
+        if (message.dataLength > 247)
         {
             printError("Error: message data length exceeds buffer size\n");
             exit(1);
@@ -319,10 +320,33 @@ void sendFile(int socketFD, char *filename)
     return;
 }
 
-void receiveFile(int socketFD, char *filename)
+int compareMD5Sum(char *path, char *md5sum)
 {
 
+    if (md5sum == NULL || path == NULL)
+    {
+        printError("Error: MD5SUM or path is NULL\n");
+        return -1;
+    }
 
+    char *reciveMD5 = calculateMD5(path);
+
+    if (reciveMD5 == NULL)
+    {
+        printError("Error: MD5SUM is NULL\n");
+        return -1;
+    }
+
+    if (strcmp(reciveMD5, md5sum) != 0)
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
+void receiveFile(int socketFD, char *filename)
+{
 
     FILE *file = fopen(filename, "w+");
     if (file == NULL)

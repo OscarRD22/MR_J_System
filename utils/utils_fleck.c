@@ -266,6 +266,39 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
         // Enviar el archivo a Harley
         sendFile(workerSocketFD, fullPath);
 
+        SocketMessage response = getSocketMessage(workerSocketFD); // Esperar confirmación de recepción
+        if (response.type == 0x06 && response.data != NULL && strcmp(response.data, "CHECK_OK") == 0)
+        {
+            printToConsole("File received by Harley successfully.\n");
+
+            SocketMessage response = getSocketMessage(workerSocketFD); // Esperar confirmación de distorsión FileSize y MD5SUM
+
+            if (response.type == 0x04 && response.data != NULL)
+            {
+                char *fileSizeWorker = strtok(response.data, "&");
+                char *md5sumWorker = strtok(NULL, "&");
+
+                if (fileSizeWorker == NULL || md5sumWorker == NULL)
+                {
+                    printError("Failed to parse file size and MD5SUM from Harley.\n");
+                    free(response.data);
+                    return;
+                }
+
+                printf("Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
+
+                char *allFileName = NULL;
+                asprintf(&allFileName, "files_distorted/%s", fileName); // Nombre del archivo distorsionado
+
+                receiveFile(workerSocketFD, allFileName);
+                free(allFileName);
+            }
+            else
+            {
+                printError("Failed to send file to Harley.\n");
+                free(response.data);
+            }
+        }
         printf("Archivo enviado a Harley\n");
     }
     else

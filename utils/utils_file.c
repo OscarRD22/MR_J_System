@@ -11,7 +11,7 @@
 int getFileSize(char *fileName)
 {
 
-    FILE *file = fopen(fileName, "r");
+    FILE *file = fopen(fileName, "rb");
     if (file == NULL)
     {
         printError("Error al abrir el archivo\n");
