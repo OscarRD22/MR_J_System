@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
@@ -25,6 +26,7 @@ char *command;
 int iSConnected = FALSE;
 int distortionCount = 0;
 DistortionProgress distortions[10]; // Máximo 10 distorsiones simultáneas
+pthread_t DistorsionThreadTxt, DistorsionThreadMedia;
 
 /**
  * @brief Saves the information of the Fleck file into the Fleck struct
@@ -176,6 +178,8 @@ void commandInterpretter()
             {
                 printToConsole("Disconnecting from Mr. J System...\n");
                 connectToGotham(TRUE); // Envía mensaje de desconexión
+                // pthread_join(DistorsionThread, NULL);
+
                 iSConnected = FALSE;
             }
             printToConsole("Thanks for using Mr. J System, see you soon, chaos lover :)\n");
@@ -198,18 +202,75 @@ void commandInterpretter()
                 {
                     printError("Invalid DISTORT command. Usage: DISTORT <filename> <factor>\n");
                 }
+
                 else
                 {
-                     //char *b;
-                    //asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
-                    //printToConsole(b);
-                    //free(b);
-                    handleDistortCommand(fullPath, filename, factor);
+                    char *extension = strrchr(fullPath, '.');
+                    if (!extension || strlen(extension) < 2)
+                    {
+                        printError("Invalid file type. Please provide a valid file.\n");
+                        return;
+                    }
+
+                    // Treure l'extensió (sense el punt inicial)
+                    char *mediaType = extension + 1;
+
+                    ThreadDistortionParams *params = malloc(sizeof(ThreadDistortionParams));
+                    // Assignar memòria dinàmica per a fullPath, filename i factor
+                    params->fullPath = malloc(strlen(fullPath) + 1);
+                    strcpy(params->fullPath, fullPath);
+
+                    params->filename = malloc(strlen(filename) + 1);
+                    strcpy(params->filename, filename);
+
+                    params->factor = malloc(strlen(factor) + 1);
+                    strcpy(params->factor, factor);
+
+                    printf("Media type: %s - %s - %s\n", params->fullPath, params->filename, params->factor);
+
+                    if (strcasecmp(mediaType, "txt") == 0)
+                    {
+                        if (isTxtDistortRunning)
+                        {
+                            printError("A text distortion is already in progress. Please wait for it to finish.\n");
+                        }
+                        else
+                        {
+                            if (pthread_create(&DistorsionThreadTxt, NULL, (void *)handleDistortCommand, (void *)params) != 0)
+                            {
+                                printError("Error creating Text thread\n");
+                            }
+                            else
+                            {
+                                isTxtDistortRunning = TRUE;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (isMediaDistortRunning)
+                        {
+                            printError("A media distortion is already in progress. Please wait for it to finish.\n");
+                        }
+                        else
+                        {
+                            if (pthread_create(&DistorsionThreadMedia, NULL, (void *)handleDistortCommand, (void *)params) != 0)
+                            {
+                                printError("Error creating Media thread \n");
+                            }
+                            else
+                            {
+                                isMediaDistortRunning = TRUE;
+                            }
+                        }
+                    }
+                    // char *b;
+                    // asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
+                    // printToConsole(b);
+                    // free(b);
+
+                    // handleDistortCommand(fullPath, filename, factor);
                 }
-                
-
-
-               
             }
         }
         else if (strncasecmp(command, "CHECK ", 6) == 0)

@@ -418,8 +418,15 @@ int sendDistortRequestToGotham(char *mediaType, char *fullPath, char *filename, 
 /**
  * @brief Clears all resources and disconnects from Gotham.
  */
-void handleDistortCommand(char *fullPath, char *filename, char *factor)
+void handleDistortCommand(void *params)
 {
+    ThreadDistortionParams *distortionParams = (ThreadDistortionParams *)params;
+    char *fullPath = distortionParams->fullPath;
+    char *filename = distortionParams->filename;
+    char *factor = distortionParams->factor;
+
+    printf("PRINT: %s - %s - %s\n", fullPath, filename, factor);
+
     char *extension = strrchr(fullPath, '.');
     if (!extension || strlen(extension) < 2)
     {
@@ -439,6 +446,20 @@ void handleDistortCommand(char *fullPath, char *filename, char *factor)
     else
     {
         printError("Failed to process distortion request.\n");
+    }
+//!Falta posar mutex.
+    // Alliberar memòria
+    free(distortionParams->fullPath);
+    free(distortionParams->filename);
+    free(distortionParams->factor);
+    free(distortionParams);
+    if (strcasecmp(mediaType, "txt") == 0)
+    {
+        isTxtDistortRunning = FALSE;
+    }
+    else 
+    {
+        isMediaDistortRunning = FALSE;
     }
 }
 

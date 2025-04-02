@@ -174,6 +174,7 @@ void distortionFile(char *path, char *factor, char *filename)
 
     if (strstr(extension, ".png") || strstr(extension, ".jpg"))
     {
+        
         int errorImg = SO_compressImage(path, atoi(factor));
         if (errorImg != 0)
         {
