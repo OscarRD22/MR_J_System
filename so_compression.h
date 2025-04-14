@@ -22,7 +22,7 @@
  This will add a delay to the process.
  The delay unit is in ms.
 */
-#define ADDITIONAL_DELAY 1000
+#define ADDITIONAL_DELAY 0
 
 // -------- ERROR CODES --------
 /*

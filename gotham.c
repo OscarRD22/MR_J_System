@@ -401,12 +401,10 @@ void *listenToFleck()
                         char message2[256];
                         snprintf(message2, sizeof(message2), "User disconnected: %s\n", receivedMessage.data);
                         printToConsole(message2);
-
-                        SocketMessage response = {0x07, 0, NULL, (unsigned int)time(NULL), 0};
-                        sendSocketMessage(fd, response);
+                        // Liberar el worker correspondiente
                         close(fd);
                         FD_CLR(fd, &master_set);
-                        printToConsole("Connection closed with Fleck.\n");
+                        printToConsole("Connection closed.\n");
                         break;
 
                     default: // Tipo no reconocido
@@ -658,6 +656,13 @@ void *listenToDistorsionWorkers()
                             SocketMessage errorResponse = {0x09, 0, NULL, (unsigned int)time(NULL), 0};
                             sendSocketMessage(fd, errorResponse);
                         }
+                        break;
+
+                    case 0x07:
+                        // Desconexión
+                        close(fd);
+                        FD_CLR(fd, &master_set);
+                        printToConsole("Conexión de WORKER cerrada.\n");
                         break;
                     }
 

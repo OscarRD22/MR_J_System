@@ -19,9 +19,9 @@
 
 // This is the client
 Harley_enigma harley;
-int gothamSocketFD;
+int gothamSocketFD, listenFleckFD;
 pthread_t DistorsionFleckThread;
-
+fd_set master_set;
 /**
  * @brief Free the memory allocated
  */
@@ -37,9 +37,22 @@ void freeMemory()
  */
 void closeFds()
 {
+
     if (gothamSocketFD > 0)
     {
+        SocketMessage message = {
+            .type = 0x07, // Respuesta exitosa
+            .dataLength = strlen(harley.worker_type),
+            .data = strdup(harley.worker_type),
+        };
+        sendSocketMessage(gothamSocketFD, message);
         close(gothamSocketFD);
+    }
+
+    if (listenFleckFD > 0)
+    {
+        // toDo! - No fleck socket connected
+        close(listenFleckFD);
     }
 }
 
@@ -71,6 +84,7 @@ void saveHarley(char *filename)
 void closeProgramSignal()
 {
     printToConsole("\nClosing program Harley\n");
+
     freeMemory();
     closeFds();
     exit(0);
@@ -170,12 +184,15 @@ int connectHarleyToGotham()
 void distortionFile(char *path, char *factor, char *filename)
 {
     printf("Distorsionando archivo\n");
-    char *extension = strrchr(filename, '.');
+    char *extension = strrchr(path, '.');
+    extension = strrchr(factor, '2');
+    extension = strrchr(filename, '.');
 
     if (strstr(extension, ".png") || strstr(extension, ".jpg"))
     {
-        
-        int errorImg = SO_compressImage(path, atoi(factor));
+
+        int errorImg = SO_compressImage(path, atoi(factor));       
+
         if (errorImg != 0)
         {
             printError("Error al distorsionar la imagen\n");
@@ -185,7 +202,6 @@ void distortionFile(char *path, char *factor, char *filename)
     else if (strstr(extension, ".wav"))
     {
         int errorAudio = SO_compressAudio(path, atoi(factor));
-
         if (errorAudio != 0)
         {
             printError("Error al distorsionar el audio\n");
@@ -292,13 +308,23 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
     sendFile(fd_Fleck, path);
     free(path);
 
+    SocketMessage receivedMSG = getSocketMessage(fd_Fleck);
+    if (receivedMSG.type == 0x07)
+    {
+        free(receivedMSG.data);
+        close(fd_Fleck);
+        FD_CLR(fd_Fleck, &master_set);
+        printToConsole("Conexión cerrada.\n");
+        return;
+    }
+
     return; // Éxito
 }
 
 void *listenToFlexDistorts()
 {
     // Crear socket de escucha
-    int listenFleckFD = createAndListenSocket(harley.fleck_ip, harley.fleck_port);
+    listenFleckFD = createAndListenSocket(harley.fleck_ip, harley.fleck_port);
     if (listenFleckFD < 0)
     {
         printToConsole("Error creating Fleck socket\n");
@@ -307,7 +333,7 @@ void *listenToFlexDistorts()
     printToConsole("Waiting for FLECK connections...............\n\n");
 
     // Inicializar conjuntos de descriptores de archivo
-    fd_set master_set, read_set;
+    fd_set read_set;
     FD_ZERO(&master_set);
     FD_ZERO(&read_set);
 
@@ -391,11 +417,11 @@ void *listenToFlexDistorts()
                         break;
 
                     case 0x07:
-                        /*Trama per notificar al Servidor d’una desconnexió.
-                        § TYPE: 0x07
-                        § DATA_LENGTH: Llargària de les dades.
-                        § DATA: <userName>*/
-                        break;
+                        // Trama per a tancar la connexió entre Fleck i Worker.
+                        //close(fd);
+                        //FD_CLR(fd, &master_set);
+                        //printToConsole("Conexión cerrada.\n");
+                        //break;
 
                     default: // Tipo no reconocido
                         printToConsole("Tipo de mensaje no reconocido. Enviando trama de error...\n");

@@ -27,7 +27,6 @@ int iSConnected = FALSE;
 int distortionCount = 0;
 DistortionProgress distortions[10]; // Máximo 10 distorsiones simultáneas
 pthread_t DistorsionThreadTxt, DistorsionThreadMedia;
-
 /**
  * @brief Saves the information of the Fleck file into the Fleck struct
  *  @param filename The name of the file to read
@@ -70,8 +69,16 @@ void freeMemory()
 
 void closeFds()
 {
+
     if (gothamSocketFD != 0)
     {
+        SocketMessage message = {
+            .type = 0x07, // Respuesta exitosa
+            .dataLength = strlen(fleck.username),
+            .data = strdup(fleck.username),
+        };
+        sendSocketMessage(gothamSocketFD, message);
+        free(message.data);
         close(gothamSocketFD);
     }
     if (distorsionSocketFD != 0)
@@ -87,7 +94,6 @@ void closeProgram()
 {
     freeMemory();
     closeFds();
-    printToConsole("Closing program Fleck\n");
     exit(0);
 }
 /**
@@ -176,9 +182,19 @@ void commandInterpretter()
         {
             if (iSConnected)
             {
+                //Bloqueja el programa fins que acabi la distorsió.
+                pthread_join(DistorsionThreadTxt, NULL);
+                pthread_join(DistorsionThreadMedia, NULL);
+                SocketMessage message = {
+                    .type = 0x07, // Respuesta exitosa
+                    .dataLength = strlen(fleck.username),
+                    .data = strdup(fleck.username),
+                };
+
+                sendSocketMessage(gothamSocketFD, message);
+                free(message.data);
+                close(gothamSocketFD);
                 printToConsole("Disconnecting from Mr. J System...\n");
-                connectToGotham(TRUE); // Envía mensaje de desconexión
-                // pthread_join(DistorsionThread, NULL);
 
                 iSConnected = FALSE;
             }
@@ -230,6 +246,7 @@ void commandInterpretter()
 
                     if (strcasecmp(mediaType, "txt") == 0)
                     {
+                        pthread_mutex_lock(&isTxtDistortRunningMutex);
                         if (isTxtDistortRunning)
                         {
                             printError("A text distortion is already in progress. Please wait for it to finish.\n");
@@ -245,15 +262,19 @@ void commandInterpretter()
                                 isTxtDistortRunning = TRUE;
                             }
                         }
+                        pthread_mutex_unlock(&isTxtDistortRunningMutex);
                     }
                     else
                     {
+                        pthread_mutex_lock(&isMediaDistortRunningMutex);
                         if (isMediaDistortRunning)
                         {
                             printError("A media distortion is already in progress. Please wait for it to finish.\n");
                         }
+
                         else
                         {
+
                             if (pthread_create(&DistorsionThreadMedia, NULL, (void *)handleDistortCommand, (void *)params) != 0)
                             {
                                 printError("Error creating Media thread \n");
@@ -263,13 +284,13 @@ void commandInterpretter()
                                 isMediaDistortRunning = TRUE;
                             }
                         }
+                        pthread_mutex_unlock(&isMediaDistortRunningMutex);
                     }
                     // char *b;
                     // asprintf(&b, "DISTORT  FILENAME(%s) FACTOR(%s)\n", filename, factor);
                     // printToConsole(b);
                     // free(b);
 
-                    // handleDistortCommand(fullPath, filename, factor);
                 }
             }
         }

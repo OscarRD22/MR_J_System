@@ -16,7 +16,10 @@ int gothamSocketFD, distorsionSocketFD;
 int isDistorsionConnected = FALSE;
 int DISTORSION = FALSE;         // Indica si hay un proceso de distorsión en curso
 int finishedDistortion = FALSE; // Indica si la última distorsión terminó con éxito
-
+int isTxtDistortRunning = FALSE;
+int isMediaDistortRunning = FALSE;
+pthread_mutex_t isTxtDistortRunningMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t isMediaDistortRunningMutex = PTHREAD_MUTEX_INITIALIZER;
 void listMedia()
 {
     DIR *dir;
@@ -321,16 +324,14 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
 
     free(response.data);
 
-    // Notificar desconexión a Harley
-    SocketMessage disconnectMessage = {
-        .type = 0x07, // Tipo de mensaje para desconexión
+    SocketMessage message = {
+        .type = 0x07, // Respuesta exitosa
         .dataLength = strlen(fleck.username),
-        .data = strdup(fleck.username), // Enviamos el username como identificador
-        .timestamp = (unsigned int)time(NULL),
-        .checksum = calculateChecksum(fleck.username, strlen(fleck.username))};
+        .data = strdup(fleck.username),
+    };
+    sendSocketMessage(gothamSocketFD, message);
 
-    sendSocketMessage(workerSocketFD, disconnectMessage);
-    free(disconnectMessage.data);
+    free(message.data);
 
     printToConsole("Disconnected from Harley worker successfully.\n");
 
@@ -447,7 +448,6 @@ void handleDistortCommand(void *params)
     {
         printError("Failed to process distortion request.\n");
     }
-//!Falta posar mutex.
     // Alliberar memòria
     free(distortionParams->fullPath);
     free(distortionParams->filename);
@@ -455,11 +455,15 @@ void handleDistortCommand(void *params)
     free(distortionParams);
     if (strcasecmp(mediaType, "txt") == 0)
     {
+        pthread_mutex_lock(&isTxtDistortRunningMutex);
         isTxtDistortRunning = FALSE;
+        pthread_mutex_unlock(&isTxtDistortRunningMutex);
     }
-    else 
+    else
     {
+        pthread_mutex_lock(&isMediaDistortRunningMutex);
         isMediaDistortRunning = FALSE;
+        pthread_mutex_unlock(&isMediaDistortRunningMutex);
     }
 }
 

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <pthread.h>
 
 #include "../struct_definitions.h"
 
@@ -11,7 +12,10 @@
 
 extern int gothamSocketFD, distorsionSocketFD;
 extern Fleck fleck;
-int isTxtDistortRunning, isMediaDistortRunning = FALSE;
+extern int isTxtDistortRunning;
+extern int isMediaDistortRunning;
+extern pthread_mutex_t isTxtDistortRunningMutex;
+extern pthread_mutex_t isMediaDistortRunningMutex;
 
 // Variables globales para el progreso de distorsión
 typedef struct
