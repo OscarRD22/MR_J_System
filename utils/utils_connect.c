@@ -40,7 +40,7 @@ SocketMessage getSocketMessage(int clientFD)
         }
         if (bytesRead == 0)
         { // Desconexión ordenada
-            printError("Client disconnected\n");
+            printError("Disconnected\n");
             exit(1);
         }
         totalBytesRead += bytesRead;

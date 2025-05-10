@@ -223,14 +223,14 @@ int connectToGotham(int isExit)
  * @param workerIP La IP del worker (Harley) proporcionada por Gotham.
  * @param workerPort El puerto del worker (Harley) proporcionado por Gotham.
  */
-void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath, char *fileName, char *factor)
+int connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath, char *fileName, char *factor)
 {
     // Crear y conectar el socket al worker Harley
     int workerSocketFD = createAndConnectSocket(workerIP, workerPort, FALSE);
     if (workerSocketFD < 0)
     {
         printError("Failed to connect to Worker (Harley).\n");
-        return;
+        return -1;
     }
 
     printToConsole("Connected to Harley worker successfully.\n");
@@ -244,7 +244,7 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
     if (asprintf(&data, "%s&%s&%d&%s&%s", fleck.username, fileName, filesize, md5sum, factor) < 0)
     {
         printError("Failed to allocate memory for distortion request.\n");
-        return;
+        return -1;
     }
 
     // char *message = NULL;
@@ -285,7 +285,7 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
                 {
                     printError("Failed to parse file size and MD5SUM from Harley.\n");
                     free(response.data);
-                    return;
+                    return -1;
                 }
 
                 printf("Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
@@ -295,6 +295,14 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
 
                 receiveFile(workerSocketFD, allFileName);
                 free(allFileName);
+            }
+            else if (response.type == 0x07 && response.data != NULL)
+            {
+
+                close(workerSocketFD);
+                printToConsole("Worker disconnected while distort\n");
+                free(response.data);
+                return -2;
             }
             else
             {
@@ -319,7 +327,7 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
         sendSocketMessage(gothamSocketFD, resumeRequest);
         free(resumeRequest.data);
         close(workerSocketFD);
-        return;
+        return -1;
     }
 
     free(response.data);
@@ -329,7 +337,7 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
         .dataLength = strlen(fleck.username),
         .data = strdup(fleck.username),
     };
-    sendSocketMessage(gothamSocketFD, message);
+    sendSocketMessage(workerSocketFD, message); // gothamSocketFD
 
     free(message.data);
 
@@ -337,6 +345,8 @@ void connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath
 
     // Cerrar el socket
     close(workerSocketFD);
+
+    return 0; // Éxito
 }
 
 /**
@@ -409,11 +419,10 @@ int sendDistortRequestToGotham(char *mediaType, char *fullPath, char *filename, 
     int workerPort = atoi(workerPortStr);
 
     printf("Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
-
-    connectToWorkerAndDisconnect(workerIP, workerPort, fullPath, filename, factor);
+    int inError = connectToWorkerAndDisconnect(workerIP, workerPort, fullPath, filename, factor);
 
     free(response.data);
-    return 0; // Èxit
+    return inError;
 }
 
 /**
@@ -439,15 +448,36 @@ void handleDistortCommand(void *params)
     char *mediaType = extension + 1;
 
     // Enviar petició a Gotham
-    if (sendDistortRequestToGotham(mediaType, fullPath, filename, factor) == 0)
-    {
+    /*
+     if (sendDistortRequestToGotham(mediaType, fullPath, filename, factor) == 0)
+      {
 
-        printToConsole("Distortion process completed successfully.\n");
-    }
-    else
+
+          printToConsole("Distortion process completed successfully.\n");
+      }
+      else
+      {
+          printError("Failed to process distortion request.\n");
+      }
+      */
+    int error = 0;
+    do
     {
-        printError("Failed to process distortion request.\n");
-    }
+        error = sendDistortRequestToGotham(mediaType, fullPath, filename, factor);
+        if (error == -1)
+        {
+            printError("Unrecoverable error while distorting.\n");
+        }
+        else if (error == -2)
+        {
+            printError("Worker disconnected while distorting. Retraying....\n");
+        }
+        else
+        {
+            printToConsole("Distortion process completed successfully.\n");
+        }
+    } while (error == -2);
+
     // Alliberar memòria
     free(distortionParams->fullPath);
     free(distortionParams->filename);

@@ -19,7 +19,7 @@
 
 // This is the client
 Harley_enigma harley;
-int gothamSocketFD, listenFleckFD;
+int gothamSocketFD, listenFleckFD, clientFleckFD;
 pthread_t DistorsionFleckThread;
 fd_set master_set;
 /**
@@ -51,9 +51,22 @@ void closeFds()
 
     if (listenFleckFD > 0)
     {
-        // toDo! - No fleck socket connected
         close(listenFleckFD);
     }
+
+    if(clientFleckFD > 0)
+    {
+        SocketMessage message = {
+            .type = 0x07, // Respuesta exitosa
+            .dataLength = strlen(harley.worker_type),
+            .data = strdup(harley.worker_type),
+        };
+        sendSocketMessage(clientFleckFD, message);
+        close(clientFleckFD);
+    }
+
+
+
 }
 
 /**
@@ -85,8 +98,8 @@ void closeProgramSignal()
 {
     printToConsole("\nClosing program Harley\n");
 
-    freeMemory();
     closeFds();
+    freeMemory();
     exit(0);
 }
 /**
@@ -191,7 +204,8 @@ void distortionFile(char *path, char *factor, char *filename)
     if (strstr(extension, ".png") || strstr(extension, ".jpg"))
     {
 
-        int errorImg = SO_compressImage(path, atoi(factor));       
+        //int errorImg = 0;
+        int errorImg = SO_compressImage(path, atoi(factor));
 
         if (errorImg != 0)
         {
@@ -201,6 +215,7 @@ void distortionFile(char *path, char *factor, char *filename)
     }
     else if (strstr(extension, ".wav"))
     {
+        //int errorAudio = 0;
         int errorAudio = SO_compressAudio(path, atoi(factor));
         if (errorAudio != 0)
         {
@@ -306,13 +321,17 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
 
     // Enviar archivo distorsionado
     sendFile(fd_Fleck, path);
+    printf("Enviado archivo distorsionado - OK\n");
     free(path);
 
     SocketMessage receivedMSG = getSocketMessage(fd_Fleck);
+    printf("Mensaje recibido: Type: %d, Data: %s\n", receivedMSG.type, receivedMSG.data);
+
     if (receivedMSG.type == 0x07)
     {
         free(receivedMSG.data);
         close(fd_Fleck);
+        clientFleckFD = -1;
         FD_CLR(fd_Fleck, &master_set);
         printToConsole("Conexión cerrada.\n");
         return;
@@ -393,7 +412,9 @@ void *listenToFlexDistorts()
                     case 0x03:
                         /*Trama  per  demanar  una  connexió  al  Worker  de  media. Aquesta  ja  inclou  información
                         del fitxer a distorsionar.*/
+                        clientFleckFD = fd;
                         managerDistorcion(receivedMessage, fd);
+
                         break;
 
                     case 0x04:
@@ -418,10 +439,10 @@ void *listenToFlexDistorts()
 
                     case 0x07:
                         // Trama per a tancar la connexió entre Fleck i Worker.
-                        //close(fd);
-                        //FD_CLR(fd, &master_set);
-                        //printToConsole("Conexión cerrada.\n");
-                        //break;
+                        // close(fd);
+                        // FD_CLR(fd, &master_set);
+                        // printToConsole("Conexión cerrada.\n");
+                        // break;
 
                     default: // Tipo no reconocido
                         printToConsole("Tipo de mensaje no reconocido. Enviando trama de error...\n");

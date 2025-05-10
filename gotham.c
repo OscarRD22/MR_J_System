@@ -25,6 +25,7 @@ typedef struct
     char ip[16];         // Dirección IP del worker
     int port;            // Puerto del worker
     int available;       // 1 = Disponible, 0 = Ocupado
+    int fd;              // Descriptor de socket del worker
 } Worker;
 
 // This is the server
@@ -162,7 +163,7 @@ void busyWorker(const char *ip, int port)
         {
             if (workers[i].available == 1)
             {
-                workers[i].available = 0; // Marcar como ocupado
+                // workers[i].available = 0; // Marcar como ocupado
                 printf("Worker at IP %s and Port %d marked as busy.\n", ip, port);
             }
             else
@@ -215,7 +216,7 @@ Worker *getAvailableWorkerByType(char *workerType)
         // Verificar si el Worker está disponible y coincide con el tipo solicitado
         if (workers[i].available == 1 && strcmp(workers[i].workerType, workerType) == 0)
         {
-            workers[i].available = 0; // Marcar como ocupado
+            // workers[i].available = 0; // Marcar como ocupado
             pthread_mutex_unlock(&workersMutex);
 
             return &workers[i];
@@ -249,7 +250,6 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
         printError("Formato de petición de distorsión incorrecto");
         return;
     }
-
 
     // Buscar un Worker disponible del tipo requerido
     printToConsole("Searching for an available worker...\n");
@@ -432,8 +432,6 @@ void *listenToFleck()
 
 // toDo-----------------------------------------------------W O R K E R S ------------------------------------------------------------------
 
-
-
 /**
  * @brief Reasigna un worker primario si el actual se desconecta.
  *
@@ -513,7 +511,7 @@ void assignPrimaryWorker(Worker *worker)
  * @param ip Dirección IP del worker.
  * @param port Puerto del worker.
  */
-void registerWorker(const char *workerType, const char *ip, int port)
+void registerWorker(const char *workerType, const char *ip, int port, int fd)
 {
     pthread_mutex_lock(&workersMutex);
 
@@ -529,6 +527,8 @@ void registerWorker(const char *workerType, const char *ip, int port)
     strcpy(workers[workerCount].ip, ip);
     workers[workerCount].port = port;
     workers[workerCount].available = 1; // Inicialmente disponible
+    workers[workerCount].fd = fd;       // Guardar el socket del worker
+    // Incrementar el contador de workers
     workerCount++;
 
     char message[256];
@@ -632,12 +632,11 @@ void *listenToDistorsionWorkers()
                             close(fd);
                         }
 
-                        registerWorker(mappedType, ip, port);
+                        registerWorker(mappedType, ip, port, fd);
 
                         char message[256];
                         snprintf(message, sizeof(message), "NEW %s worker connected - ready to distort!\n", mappedType);
                         printToConsole(message);
-
 
                         // Responder con una trama OK
                         SocketMessage response;
@@ -649,8 +648,7 @@ void *listenToDistorsionWorkers()
                         printToConsole("Worker registered successfully!!!!!!!!\n");
                         break;
 
-                        
-                        default: // Tipo no reconocido
+                    default: // Tipo no reconocido
                         printToConsole("Tipo de mensaje no reconocido. Enviando trama de error...\n");
                         {
                             SocketMessage errorResponse = {0x09, 0, NULL, (unsigned int)time(NULL), 0};
@@ -660,6 +658,15 @@ void *listenToDistorsionWorkers()
 
                     case 0x07:
                         // Desconexión
+                        for (int i = 0; i < workerCount; i++)
+                        {
+                            if (fd == workers[i].fd)
+                            {
+                                // Marcar el worker como disponible
+                                workers[i].available = 0; // Marcar como ocupado
+                            }
+                        }
+
                         close(fd);
                         FD_CLR(fd, &master_set);
                         printToConsole("Conexión de WORKER cerrada.\n");
@@ -711,4 +718,3 @@ int main(int argc, char *argv[])
     freeMemory();
     return 0;
 }
-
