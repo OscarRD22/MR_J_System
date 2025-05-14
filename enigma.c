@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <ctype.h>
 
 #include "utils/utils_connect.h"
 #include "utils/utils_file.h"
@@ -68,6 +70,45 @@ void closeFds()
 
 
 }
+
+
+void distort_file_text(const char* input_path, const char* output_path, int llindar) {
+    FILE* in = fopen(input_path, "r");
+    if (!in) {
+        perror("Error obrint el fitxer d'entrada");
+        return;
+    }
+
+    FILE* out = fopen(output_path, "w");
+    if (!out) {
+        perror("Error obrint el fitxer de sortida");
+        fclose(in);
+        return;
+    }
+
+    char paraula[256];
+    while (fscanf(in, "%255s", paraula) == 1) {
+        // Eliminar signes de puntuació finals
+        int len = strlen(paraula);
+        while (len > 0 && ispunct(paraula[len - 1])) {
+            paraula[len - 1] = '\0';
+            len--;
+        }
+
+        if ((int)strlen(paraula) >= llindar) {
+            fprintf(out, "%s ", paraula);
+        }
+    }
+
+    fprintf(out, "\n"); // línia nova al final per claredat
+    fclose(in);
+    fclose(out);
+}
+
+
+
+
+
 
 /**
  * @brief Saves the information of the Harley file into the Harley struct
@@ -161,33 +202,7 @@ int connectHarleyToGotham()
     return 0; // Éxito
 }
 
-/*void simulateDistortionProcess(int clientSocketFD)
-{
-    printToConsole("Receiving original media/text...");
-    sleep(2); // Simula procesamiento
 
-    printToConsole("Distorting...");
-    sleep(2); // Simula distorsión
-
-    printToConsole("Sending distorted data back...");
-    SocketMessage response = {
-        .type = 0x12, // Respuesta exitosa
-        .dataLength = strlen("DISTORT_OK"),
-        .data = strdup("DISTORT_OK"),
-        .timestamp = (unsigned int)time(NULL),
-        .checksum = calculateChecksum("DISTORT_OK", strlen("DISTORT_OK"))};
-
-    sendSocketMessage(clientSocketFD, response);
-    free(response.data);
-
-    printToConsole("Distortion process completed. Disconnecting...\n");
-
-    // Cerrar el socket después del proceso
-    close(clientSocketFD);
-
-    // Notificar a Gotham que el worker está disponible
-    // releaseWorker(harley.gotham_ip, harley.gotham_port);
-}*/
 
 /**
  * @brief Distorts the file
@@ -198,36 +213,26 @@ void distortionFile(char *path, char *factor, char *filename)
 {
     printf("Distorsionando archivo\n");
     char *extension = strrchr(path, '.');
-    extension = strrchr(factor, '2');
-    extension = strrchr(filename, '.');
-
-    if (strstr(extension, ".png") || strstr(extension, ".jpg"))
+    if (!extension || strcmp(extension, ".txt") != 0)
     {
-
-        //int errorImg = 0;
-        int errorImg = SO_compressImage(path, atoi(factor));
-
-        if (errorImg != 0)
-        {
-            printError("Error al distorsionar la imagen\n");
-            return;
-        }
-    }
-    else if (strstr(extension, ".wav"))
-    {
-        //int errorAudio = 0;
-        int errorAudio = SO_compressAudio(path, atoi(factor));
-        if (errorAudio != 0)
-        {
-            printError("Error al distorsionar el audio\n");
-            return;
-        }
-    }
-    else
-    {
-        printError("Formato de archivo no soportado\n");
+        printError("Formato de archivo no soportado (se espera .txt)\n");
         return;
     }
+
+    // Obtenir llindar (factor de distorsió)
+    int llindar = atoi(factor);
+    if (llindar <= 0)
+    {
+        printError("El factor ha de ser un enter positiu\n");
+        return;
+    }
+
+ // Crear path de sortida: per exemple, "distorsionat_<filename>"
+    char *distortedPath = NULL;
+    asprintf(&distortedPath, "%s/distorsionat_%s", harley.folder, filename);
+
+    // Distorsionar el fitxer de text
+    distort_file_text(path, distortedPath, llindar);    
 
     printToConsole("Archivo distorsionado correctamente\n");
 }
@@ -306,6 +311,8 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
         .data = "CHECK_OK"};
     sendSocketMessage(fd_Fleck, messageToSendOk);
 
+   
+
     // Proceso de distorsión
     distortionFile(path, factor, filename);
 
@@ -319,10 +326,17 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
     };
     sendSocketMessage(fd_Fleck, messageToSendDistorted);
 
+    //Add prefix distorted_file
+    char *pathTEST = NULL;
+    asprintf(&pathTEST, "%s/distorsionat_%s", harley.folder, filename);
+
+   printf("path: %s - filename: %s \n", pathTEST, filename);
+
+
     // Enviar archivo distorsionado
-    sendFile(fd_Fleck, path);
+    sendFile(fd_Fleck, pathTEST);
     printf("Enviado archivo distorsionado - OK\n");
-    free(path);
+    free(pathTEST);
 
     SocketMessage receivedMSG = getSocketMessage(fd_Fleck);
     printf("Mensaje recibido: Type: %d, Data: %s\n", receivedMSG.type, receivedMSG.data);
