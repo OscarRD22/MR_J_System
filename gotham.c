@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/wait.h>
 #include <sys/select.h>
 #include "struct_definitions.h"
 #include "utils/io_utils.h"
@@ -34,7 +35,7 @@ int data_file_fd, listenFleckFD, listenWorkerFD = 0;
 pthread_t FleckThread, DistorsionWorkersThread;
 int terminate = FALSE;
 Worker workers[MAX_WORKERS];
-int workerCount = 0;
+int workerCount = 0, fd_logs_write;
 Worker *primaryHarley = NULL;
 Worker *primaryEnigma = NULL;
 // Mutex para sincronización
@@ -686,18 +687,18 @@ void *listenToDistorsionWorkers()
 }
 // toDo-----------------------------------------------------W O R K E R S ------------------------------------------------------------------
 
-/**
- * @brief Main function of the Gotham server
- * @param argc The number of arguments
- * @param argv The arguments
- * @return 0 if the program ends correctly
- */
-int main(int argc, char *argv[])
+void main_gotham(int argc, char *argv[])
 {
     initalSetup(argc);
 
     saveGotham(argv[1]);
     printToConsole("Gotham server initialized\n\n");
+     SocketMessage msg = {
+            .type = 0x022,
+            .dataLength = strlen("Gotham server initialized"),
+            .data = "Gotham server initialized"};
+
+        sendSocketMessage(fd_logs_write, msg);
 
     // Retorna 0 si tiene éxito o un código de error si falla
     if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, NULL) != 0)
@@ -716,5 +717,108 @@ int main(int argc, char *argv[])
     pthread_join(DistorsionWorkersThread, NULL);
 
     freeMemory();
+};
+
+void main_arkham(int pipefd)
+{
+
+    int fitxer_log = open("logs.txt", O_CREAT | O_WRONLY | O_APPEND, 0644);
+
+    while (TRUE)
+    {
+        
+       SocketMessage msg = getSocketMessage(pipefd);
+        if (msg.type == 0x022)
+        {
+          
+            // Write the message to the log file
+            write(fitxer_log, msg.data, msg.dataLength);
+            write(fitxer_log, "\n", 1);
+        }
+        else if (msg.type == 0x07)
+        {
+            break; // Exit the loop on disconnect message
+        }
+       
+    }
+    close(fitxer_log);
+    printToConsole("Arkham process finished\n");
+    
+}
+
+/**
+ * @brief Main function of the Gotham server
+ * @param argc The number of arguments
+ * @param argv The arguments
+ * @return 0 if the program ends correctly
+ */
+int main(int argc, char *argv[])
+{
+    pid_t pid;
+    int pipefd[2];
+
+    if (pipe(pipefd) == -1)
+    {
+       printError("pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    // Fork the process
+    pid = fork();
+    switch (pid)
+    {
+    case -1:
+        perror("fork");
+        exit(EXIT_FAILURE);
+    case 0:
+        // Child process
+        // Iniciar el proceso de Arkham
+        // Close unused write end
+        if (close(pipefd[1]) == -1)
+        {
+             printError("close");
+        exit(EXIT_FAILURE);
+        }
+        main_arkham(pipefd[0]); // Bucle infinit on faig reed de la pipe, i crido funcio per escriure al fitxer. log.txt
+
+        if (close(pipefd[0]) == -1)
+        {
+             printError("close");
+        exit(EXIT_FAILURE);
+        }
+        _exit(EXIT_SUCCESS);
+
+    default:
+        if (close(pipefd[0]) == -1)
+        {
+             printError("close");
+        exit(EXIT_FAILURE);
+        }
+        /* 
+        SocketMessage msg = {
+            .type = 0x022,
+            .dataLength = strlen("Fleck conectat a Gotham"),
+            .data = "Fleck conectat a Gotham"};
+
+        sendSocketMessage(pipefd[1], msg);
+        */
+
+        fd_logs_write = pipefd[1];
+        // Iniciar el proceso de Gotham
+        main_gotham(argc, argv); // Enviar fd1, variable global. Generar funcio que envii logs.
+
+        if (close(pipefd[1]) == -1)
+        {
+             printError("close");
+        exit(EXIT_FAILURE);
+        }
+        if (wait(NULL) == -1)
+        {
+             printError("await");
+        exit(EXIT_FAILURE);
+        }
+        exit(EXIT_SUCCESS);
+    }
+
     return 0;
 }
