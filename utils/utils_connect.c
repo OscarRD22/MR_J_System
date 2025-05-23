@@ -78,7 +78,7 @@ SocketMessage getSocketMessage(int clientFD)
     message.checksum = calculateChecksum(buffer, 250);
     if (checksum != message.checksum)
     {
-        printError("Error: checksum mismatch\n");
+        printError(" \n");
         // free(message.data);
         // message.data = NULL;
     }
