@@ -81,7 +81,6 @@
 ==20587==    by 0x48D963D: _IO_file_xsputn@@GLIBC_2.2.5 (fileops.c:1196)
 ==20587==    by 0x48B450D: outstring_func (vfprintf-internal.c:239)
 ==20587==    by 0x48B450D: __vfprintf_internal (vfprintf-internal.c:767)
-==20587==    by 0x48AA65A: printf (printf.c:33)
 ==20587==    by 0x10B35E: connectToGotham (utils_fleck.c:178)
 ==20587==    by 0x10A75A: commandInterpretter (fleck.c:164)
 ==20587==    by 0x10AB77: main (fleck.c:310)

@@ -196,7 +196,7 @@ int connectHarleyToGotham()
  */
 void distortionFile(char *path, char *factor, char *filename)
 {
-    printf("Distorsionando archivo\n");
+    printToConsole("Distorsionando archivo\n");
     char *extension = strrchr(path, '.');
     extension = strrchr(factor, '2');
     extension = strrchr(filename, '.');
@@ -284,10 +284,8 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
     char *path = NULL;
     asprintf(&path, "%s/%s", harley.folder, filename);
 
-    // printf("Pre reciveFile FUNCTION\n");
     receiveFile(fd_Fleck, path);
     int result = compareMD5Sum(path, md5sum);
-    // printf("Post reciveFile FUNCTION\n");
 
     if (result != 0)
     {
@@ -321,11 +319,15 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
 
     // Enviar archivo distorsionado
     sendFile(fd_Fleck, path);
-    printf("Enviado archivo distorsionado - OK\n");
+    printToConsole("Enviado archivo distorsionado - OK\n");
     free(path);
 
     SocketMessage receivedMSG = getSocketMessage(fd_Fleck);
-    printf("Mensaje recibido: Type: %d, Data: %s\n", receivedMSG.type, receivedMSG.data);
+    
+    char *printText = NULL;
+    asprintf(&printText, "Mensaje recibido: Type: %d, Data: %s\n", receivedMSG.type, receivedMSG.data);
+    printToConsole(printText);
+    free(printText);
 
     if (receivedMSG.type == 0x07)
     {
@@ -401,10 +403,14 @@ void *listenToFlexDistorts()
                 else
                 {
 
-                    printf("Nuevo mensaje recibido\n");
+                    printToConsole("Nuevo mensaje recibido\n");
                     // Socket existente - recibir mensaje
                     SocketMessage receivedMessage = getSocketMessage(fd);
-                    printf("Mensaje recibido: Type: %d, Data: %s\n", receivedMessage.type, receivedMessage.data);
+                    char *printText = NULL;
+                    asprintf(&printText, "Mensaje recibido: Type: %d, Data: %s\n", receivedMessage.type, receivedMessage.data);
+                    printToConsole(printText);
+                    free(printText);
+
 
                     // Manejar el tipo de mensaje
                     switch (receivedMessage.type)
@@ -479,7 +485,12 @@ int main(int argc, char *argv[])
         printToConsole("\nWaiting for connections...\n");
 
         result = connectHarleyToGotham();
-        printf("Result: %d\n", result);
+        
+        char *printText = NULL;
+        asprintf(&printText, "Result: %d\n", result);
+        printToConsole(printText);
+        
+        free(printText);
         // Intentar conexión a Gotham
         if (result != 0)
         {

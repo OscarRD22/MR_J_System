@@ -178,11 +178,13 @@ int connectToGotham(int isExit)
     message.timestamp = (unsigned int)time(NULL);
     message.checksum = calculateChecksum(message.data, message.dataLength);
 
-    printf("Message being sent: %s\n", buffer);
+    char *printText = NULL;
+    asprintf(&printText, "Message being sent: %s\n", buffer);
+    printToConsole(printText);
+    free(printText);
 
     // Enviar el mensaje a Gotham
     sendSocketMessage(gothamSocketFD, message);
-    // printf("Type: %d, DataLength: %d, Data: %s, Timestamp: %u, Checksum: %d\n",
     //        message.type, message.dataLength, message.data, message.timestamp, message.checksum);
 
     // Liberar el buffer del mensaje
@@ -261,7 +263,10 @@ int connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath,
 
     // Esperar respuesta de Harley
     SocketMessage response = getSocketMessage(workerSocketFD);
-    printf("Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
+    char *printText = NULL;
+    asprintf(&printText, "Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
+    printToConsole(printText);
+    free(printText);
     if (response.type == 0x03 && response.dataLength == 0)
     {
         printToConsole("Harley confirmed connection and ready to operate.\n");
@@ -288,7 +293,10 @@ int connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath,
                     return -1;
                 }
 
-                printf("Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
+                char *printText = NULL;
+                asprintf(&printText, "Respuesta de Harley: Type: %d, Data: %s\n", response.type, response.data);
+                printToConsole(printText);
+                free(printText);
 
                 char *allFileName = NULL;
                 asprintf(&allFileName, "files_distorted/%s", fileName); // Nombre del archivo distorsionado
@@ -310,7 +318,7 @@ int connectToWorkerAndDisconnect(char *workerIP, int workerPort, char *fullPath,
                 free(response.data);
             }
         }
-        printf("Archivo enviado a Harley\n");
+        printToConsole("Archivo enviado a Harley\n");
     }
     else
     {
@@ -380,15 +388,22 @@ int sendDistortRequestToGotham(char *mediaType, char *fullPath, char *filename, 
 
     printToConsole("Enviando solicitud de distorsión a Gotham...");
 
-    printf("Datos de la Solicitud Data: %s\n", request.data);
+    char *printText = NULL;
+    asprintf(&printText, "Datos de la Solicitud Data: %s\n", request.data);
+    printToConsole(printText);
+    free(printText);
 
     sendSocketMessage(gothamSocketFD, request);
     free(dataBuffer);
-    printf("\nMensaje a Gotham enviado\n");
+    printToConsole("\nMensaje a Gotham enviado\n");
 
     // Esperar resposta de Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
-    printf("Respuesta de Gotham: Type: %d, Data: %s\n", response.type, response.data);
+
+    char *printText = NULL;
+    asprintf(&printText, "Respuesta de Gotham: Type: %d, Data: %s\n", response.type, response.data);
+    printToConsole(printText);
+    free(printText);
 
     if (response.type != 0x10)
     {
@@ -418,7 +433,11 @@ int sendDistortRequestToGotham(char *mediaType, char *fullPath, char *filename, 
 
     int workerPort = atoi(workerPortStr);
 
-    printf("Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
+    char *printText = NULL;
+    asprintf(&printText, "Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
+    printToConsole(printText);
+    free(printText);
+
     int inError = connectToWorkerAndDisconnect(workerIP, workerPort, fullPath, filename, factor);
 
     free(response.data);
@@ -435,7 +454,10 @@ void handleDistortCommand(void *params)
     char *filename = distortionParams->filename;
     char *factor = distortionParams->factor;
 
-    printf("PRINT: %s - %s - %s\n", fullPath, filename, factor);
+    char *printText = NULL;
+    asprint(&printText, "PRINT: %s - %s - %s\n", fullPath, filename, factor);
+    printToConsole(printText);
+    free(printText);
 
     char *extension = strrchr(fullPath, '.');
     if (!extension || strlen(extension) < 2)

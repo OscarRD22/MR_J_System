@@ -242,7 +242,11 @@ void commandInterpretter()
                     params->factor = malloc(strlen(factor) + 1);
                     strcpy(params->factor, factor);
 
-                    printf("Media type: %s - %s - %s\n", params->fullPath, params->filename, params->factor);
+                    char *printText = NULL;
+                    asprintf(&printText, "Media type: %s - %s - %s\n", params->fullPath, params->filename, params->factor);
+                    printToConsole(printText);
+                    free(printText);
+
 
                     if (strcasecmp(mediaType, "txt") == 0)
                     {

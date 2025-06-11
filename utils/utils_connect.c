@@ -71,7 +71,6 @@ SocketMessage getSocketMessage(int clientFD)
         message.data[message.dataLength] = '\0'; // Asegura el final de la cadena
     }
 
-    //printf("Message being 1-GETSocket: Type:%d - DataLength:%d - Data:%s\n", message.type, message.dataLength, message.data);
 
     // Deserializa y valida CHECKSUM (2 bytes)
     int checksum = buffer[250] | (buffer[251] << 8);
@@ -82,12 +81,10 @@ SocketMessage getSocketMessage(int clientFD)
         // free(message.data);
         // message.data = NULL;
     }
-    // else{ printf("Checksum correcto\n");}
     //  Deserializa TIMESTAMP (4 bytes)
     message.timestamp = buffer[252] | (buffer[253] << 8) |
                         (buffer[254] << 16) | (buffer[255] << 24);
 
-    // printf("Message being 2-GETSocket: Type:%d - DataLength:%d - Data:%s - CheckSum:%d - Timestump:%d\n", message.type, message.dataLength, message.data, message.checksum, message.timestamp);
 
     return message;
 }
@@ -128,7 +125,6 @@ void sendSocketMessage(int socketFD, SocketMessage message)
     buffer[254] = ((timestamp >> 16) & 0xFF);
     buffer[255] = ((timestamp >> 24) & 0xFF);
 
-    //printf("Message being sentSocket: %d - %d - %s - %d - %d\n", message.type, message.dataLength, message.data, checksum, message.timestamp);
 
     // Envia el buffer pel socket
     if (write(socketFD, buffer, 256) != 256)
@@ -352,7 +348,12 @@ void receiveFile(int socketFD, char *filename)
     if (file == NULL)
     {
         printError("Error opening file\n");
-        printf("%s\n", filename);
+        
+        char *printText = NULL;
+        asprintf(&printText, "Error opening file: %s\n", filename);
+        printError(printText);
+        free(printText);
+
         return;
     }
 

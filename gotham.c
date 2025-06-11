@@ -165,11 +165,17 @@ void busyWorker(const char *ip, int port)
             if (workers[i].available == 1)
             {
                 // workers[i].available = 0; // Marcar como ocupado
-                printf("Worker at IP %s and Port %d marked as busy.\n", ip, port);
+                char *printText = NULL;
+                asprintf(&printText, "Worker at IP %s and Port %d marked as busy.\n", ip, port);
+                printToConsole(printText);
+                free(printText);
             }
             else
             {
-                printf("Warning: Worker at IP %s and Port %d is already busy.\n", ip, port);
+                char *printText = NULL;
+                asprintf(&printText, "Worker at IP %s and Port %d is already busy.\n", ip, port);
+                printToConsole(printText);
+                free(printText);
             }
             break;
         }
@@ -266,7 +272,13 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
         free(errorResponse.data);
         return;
     }
-    printf("Found available worker: IP = %s, Port = %d\n", worker->ip, worker->port);
+
+    char *printText = NULL;
+    asprintf(&printText, "Found available worker: IP = %s, Port = %d\n", worker->ip, worker->port);
+    printToConsole(printText);
+    free(printText);
+
+
     // Marcar el worker como ocupado**
     busyWorker(worker->ip, worker->port);
 
@@ -347,7 +359,12 @@ void *listenToFleck()
 
                     // Agregar el nuevo socket al conjunto maestro
                     FD_SET(newSocketFD, &master_set);
-                    printf("New Fleck connection accepted: %d\n", newSocketFD);
+                    
+                    char *printText = NULL;
+                    asprintf(&printText, "New Fleck connection accepted: %d\n", newSocketFD);
+                    printToConsole(printText);
+                    free(printText);
+
                     if (newSocketFD > max_fd)
                     {
                         max_fd = newSocketFD; // Actualizar el máximo descriptor de archivo
@@ -356,7 +373,10 @@ void *listenToFleck()
                 }
                 else
                 {
-                    printf("Socket activo: %d\n", fd);
+                    char *printText = NULL;
+                    asprintf(&printText,"Socket activo: %d\n", fd);
+                    printToConsole(printText);
+                    free(printText);
                     // Socket existente - recibir mensaje
                     SocketMessage receivedMessage = getSocketMessage(fd);
 
@@ -591,7 +611,13 @@ void *listenToDistorsionWorkers()
 
                     // Agregar el nuevo socket al conjunto maestro
                     FD_SET(newSocketFD, &master_set);
-                    printf("New socket: %d\n", newSocketFD);
+                    
+                    char *printText = NULL;
+                    asprintf(&printText, "New socket: %d\n", newSocketFD);
+                    printToConsole(printText);
+                    free(printText);
+
+
                     if (newSocketFD > max_fd)
                     {
                         max_fd = newSocketFD; // Actualizar el máximo descriptor de archivo
@@ -600,7 +626,10 @@ void *listenToDistorsionWorkers()
                 }
                 else
                 {
-                    printf("Socket: %d\n", fd);
+                    char *printText = NULL;
+                    asprintf(&printText, "Socket activo: %d\n", fd);
+                    printToConsole(printText);
+                    free(printText);
                     // Socket existente - recibir mensaje
                     SocketMessage receivedMessage = getSocketMessage(fd);
 
@@ -693,12 +722,12 @@ void main_gotham(int argc, char *argv[])
 
     saveGotham(argv[1]);
     printToConsole("Gotham server initialized\n\n");
-     SocketMessage msg = {
-            .type = 0x022,
-            .dataLength = strlen("Gotham server initialized"),
-            .data = "Gotham server initialized"};
+    SocketMessage msg = {
+        .type = 0x022,
+        .dataLength = strlen("Gotham server initialized"),
+        .data = "Gotham server initialized"};
 
-        sendSocketMessage(fd_logs_write, msg);
+    sendSocketMessage(fd_logs_write, msg);
 
     // Retorna 0 si tiene éxito o un código de error si falla
     if (pthread_create(&FleckThread, NULL, (void *)listenToFleck, NULL) != 0)
@@ -726,11 +755,11 @@ void main_arkham(int pipefd)
 
     while (TRUE)
     {
-        
-       SocketMessage msg = getSocketMessage(pipefd);
+
+        SocketMessage msg = getSocketMessage(pipefd);
         if (msg.type == 0x022)
         {
-          
+
             // Write the message to the log file
             write(fitxer_log, msg.data, msg.dataLength);
             write(fitxer_log, "\n", 1);
@@ -739,11 +768,9 @@ void main_arkham(int pipefd)
         {
             break; // Exit the loop on disconnect message
         }
-       
     }
     close(fitxer_log);
     printToConsole("Arkham process finished\n");
-    
 }
 
 /**
@@ -759,7 +786,7 @@ int main(int argc, char *argv[])
 
     if (pipe(pipefd) == -1)
     {
-       printError("pipe");
+        printError("pipe");
         exit(EXIT_FAILURE);
     }
 
@@ -776,25 +803,25 @@ int main(int argc, char *argv[])
         // Close unused write end
         if (close(pipefd[1]) == -1)
         {
-             printError("close");
-        exit(EXIT_FAILURE);
+            printError("close");
+            exit(EXIT_FAILURE);
         }
         main_arkham(pipefd[0]); // Bucle infinit on faig reed de la pipe, i crido funcio per escriure al fitxer. log.txt
 
         if (close(pipefd[0]) == -1)
         {
-             printError("close");
-        exit(EXIT_FAILURE);
+            printError("close");
+            exit(EXIT_FAILURE);
         }
         _exit(EXIT_SUCCESS);
 
     default:
         if (close(pipefd[0]) == -1)
         {
-             printError("close");
-        exit(EXIT_FAILURE);
+            printError("close");
+            exit(EXIT_FAILURE);
         }
-        /* 
+        /*
         SocketMessage msg = {
             .type = 0x022,
             .dataLength = strlen("Fleck conectat a Gotham"),
@@ -809,13 +836,13 @@ int main(int argc, char *argv[])
 
         if (close(pipefd[1]) == -1)
         {
-             printError("close");
-        exit(EXIT_FAILURE);
+            printError("close");
+            exit(EXIT_FAILURE);
         }
         if (wait(NULL) == -1)
         {
-             printError("await");
-        exit(EXIT_FAILURE);
+            printError("await");
+            exit(EXIT_FAILURE);
         }
         exit(EXIT_SUCCESS);
     }
