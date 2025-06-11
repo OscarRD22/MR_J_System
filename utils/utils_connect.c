@@ -12,6 +12,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 #include <dirent.h>
 
 // Osar.romero - Marc.marza
@@ -36,12 +37,12 @@ SocketMessage getSocketMessage(int clientFD)
         if (bytesRead < 0)
         { // Error en la lectura
             printError("Error while reading from socket\n");
-            exit(1);
+            raise(SIGINT); // Lanza la señal de interrupción para cerrar el programa
         }
         if (bytesRead == 0)
         { // Desconexión ordenada
             printError("Disconnected\n");
-            exit(1);
+            raise(SIGINT); // Lanza la señal de interrupción para cerrar el programa
         }
         totalBytesRead += bytesRead;
     }
@@ -217,12 +218,7 @@ int createAndConnectSocket(char *IP, int port, int isVerbose)
  */
 int createAndListenSocket(char *IP, int port)
 {
-    /*
-    char *buffer;
-    asprintf(&buffer, "Creating socket on %s:%d\n", IP, port);
-    printToConsole(buffer);
-    free(buffer);
-*/
+   
     int socketFD;
     struct sockaddr_in server;
     if ((socketFD = socket(AF_INET, SOCK_STREAM, 0)) < 0)

@@ -69,6 +69,7 @@ void closeFds()
 
 
 
+
 }
 
 
@@ -130,6 +131,8 @@ void saveHarley(char *filename)
 
     harley.folder = readUntil('\n', data_file_fd);
     harley.worker_type = readUntil('\n', data_file_fd);
+
+    close(data_file_fd);
 }
 
 /**
@@ -137,10 +140,13 @@ void saveHarley(char *filename)
  */
 void closeProgramSignal()
 {
-    printToConsole("\nClosing program Harley\n");
+    printToConsole("\nClosing program Enigma\n");
 
     closeFds();
     freeMemory();
+    close(0); //Teclado
+    close(1); //Pantalla
+    close(2); //Error
     exit(0);
 }
 /**

@@ -89,6 +89,8 @@ void saveHarley(char *filename)
 
     harley.folder = readUntil('\n', data_file_fd);
     harley.worker_type = readUntil('\n', data_file_fd);
+
+    close(data_file_fd);
 }
 
 /**
@@ -100,6 +102,9 @@ void closeProgramSignal()
 
     closeFds();
     freeMemory();
+    close(0); //Teclado
+    close(1); //Pantalla
+    close(2); //Error
     exit(0);
 }
 /**
@@ -345,7 +350,7 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
 void *listenToFlexDistorts()
 {
     // Crear socket de escucha
-    listenFleckFD = createAndListenSocket(harley.fleck_ip, harley.fleck_port);
+    listenFleckFD = createAndListenSocket("127.0.0.1", harley.fleck_port);
     if (listenFleckFD < 0)
     {
         printToConsole("Error creating Fleck socket\n");

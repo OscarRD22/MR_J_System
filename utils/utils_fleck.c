@@ -400,7 +400,7 @@ int sendDistortRequestToGotham(char *mediaType, char *fullPath, char *filename, 
     // Esperar resposta de Gotham
     SocketMessage response = getSocketMessage(gothamSocketFD);
 
-    char *printText = NULL;
+    printText = NULL;
     asprintf(&printText, "Respuesta de Gotham: Type: %d, Data: %s\n", response.type, response.data);
     printToConsole(printText);
     free(printText);
@@ -433,7 +433,7 @@ int sendDistortRequestToGotham(char *mediaType, char *fullPath, char *filename, 
 
     int workerPort = atoi(workerPortStr);
 
-    char *printText = NULL;
+    printText = NULL;
     asprintf(&printText, "Worker Details: IP: %s, Port: %d\n", workerIP, workerPort);
     printToConsole(printText);
     free(printText);
@@ -455,7 +455,7 @@ void handleDistortCommand(void *params)
     char *factor = distortionParams->factor;
 
     char *printText = NULL;
-    asprint(&printText, "PRINT: %s - %s - %s\n", fullPath, filename, factor);
+    asprintf(&printText, "PRINT: %s - %s - %s\n", fullPath, filename, factor);
     printToConsole(printText);
     free(printText);
 
