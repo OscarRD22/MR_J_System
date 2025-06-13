@@ -203,7 +203,8 @@ int createAndConnectSocket(char *IP, int port, int isVerbose)
     // Connect to server
     if (connect(socketFD, (struct sockaddr *)&server, sizeof(server)) < 0)
     {
-        printError("Error connecting\n");
+        printError("Error connecting\n ");
+        printf("IP: %s, Port: %d\n", IP, port);   //! PRINTF
         exit(1);
     }
 
