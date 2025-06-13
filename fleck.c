@@ -103,6 +103,9 @@ void closeProgramSignal()
 {
     freeMemory();
     closeFds();
+    close(0); // Cierra la entrada estándar
+    close(1);
+    close(2);
     exit(0);
 }
 

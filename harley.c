@@ -350,7 +350,7 @@ void managerDistorcion(SocketMessage receivedMessage, int fd_Fleck)
 void *listenToFlexDistorts()
 {
     // Crear socket de escucha
-    listenFleckFD = createAndListenSocket("127.0.0.1", harley.fleck_port);
+    listenFleckFD = createAndListenSocket(harley.fleck_ip, harley.fleck_port);
     if (listenFleckFD < 0)
     {
         printToConsole("Error creating Fleck socket\n");

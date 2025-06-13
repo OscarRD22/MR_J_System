@@ -128,6 +128,9 @@ void closeProgramSignal()
 
     freeMemory();
     closeFds();
+    close(0); // Cierra la entrada estándar
+    close(1); // Cierra la salida estándar
+    close(2); // Cierra la salida de error estándar
     exit(0);
 }
 
