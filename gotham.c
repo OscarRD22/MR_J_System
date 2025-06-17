@@ -167,7 +167,7 @@ void busyWorker(const char *ip, int port)
         {
             if (workers[i].available == 1)
             {
-                // workers[i].available = 0; // Marcar como ocupado
+                 workers[i].available = 0; // Marcar como ocupado
                 char *printText = NULL;
                 asprintf(&printText, "Worker at IP %s and Port %d marked as busy.\n", ip, port);
                 printToConsole(printText);
@@ -281,7 +281,6 @@ void handleDistortRequest(SocketMessage receivedMessage, int clientSocketFD)
     printToConsole(printText);
     free(printText);
 
-
     // Marcar el worker como ocupado**
     busyWorker(worker->ip, worker->port);
 
@@ -362,7 +361,7 @@ void *listenToFleck()
 
                     // Agregar el nuevo socket al conjunto maestro
                     FD_SET(newSocketFD, &master_set);
-                    
+
                     char *printText = NULL;
                     asprintf(&printText, "New Fleck connection accepted: %d\n", newSocketFD);
                     printToConsole(printText);
@@ -377,9 +376,8 @@ void *listenToFleck()
                 else
                 {
                     char *printText = NULL;
-                    asprintf(&printText,"Socket activo: %d\n", fd);
+                    asprintf(&printText, "Socket activo: %d\n", fd);
                     printToConsole(printText);
-                    free(printText);
                     // Socket existente - recibir mensaje
                     SocketMessage receivedMessage = getSocketMessage(fd);
 
@@ -614,12 +612,11 @@ void *listenToDistorsionWorkers()
 
                     // Agregar el nuevo socket al conjunto maestro
                     FD_SET(newSocketFD, &master_set);
-                    
+
                     char *printText = NULL;
                     asprintf(&printText, "New socket: %d\n", newSocketFD);
                     printToConsole(printText);
                     free(printText);
-
 
                     if (newSocketFD > max_fd)
                     {
@@ -703,7 +700,7 @@ void *listenToDistorsionWorkers()
                         close(fd);
                         FD_CLR(fd, &master_set);
                         printToConsole("Conexión de WORKER cerrada.\n");
-                        break;
+                        // break;
                     }
 
                     // Liberar recursos del mensaje recibido
