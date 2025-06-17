@@ -1,1 +1,5 @@
 Fleck conectat a Gotham
+Gotham server initialized
+Gotham server initialized
+Gotham server initialized
+Gotham server initialized

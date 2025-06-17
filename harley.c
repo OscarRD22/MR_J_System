@@ -214,7 +214,7 @@ void distortionFile(char *path, char *factor, char *filename)
 
         if (errorImg != 0)
         {
-            printError("Error al distorsionar la imagen\n");
+            //printError("Error al distorsionar la imagen\n");
             return;
         }
     }
@@ -224,7 +224,7 @@ void distortionFile(char *path, char *factor, char *filename)
         int errorAudio = SO_compressAudio(path, atoi(factor));
         if (errorAudio != 0)
         {
-            printError("Error al distorsionar el audio\n");
+            //printError("Error al distorsionar el audio\n");
             return;
         }
     }
